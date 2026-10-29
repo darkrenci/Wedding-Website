@@ -1,0 +1,6 @@
+{
+  "name": "Emma & Andre Wedding Invitation",
+  "description": "An interactive digital wedding invitation with wax-sealed envelope opening, calendar save, RSVP portal, and live countdown.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

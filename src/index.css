@@ -1,0 +1,131 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-cormorant: 'Cormorant Garamond', Georgia, serif;
+    --font-script: 'Alex Brush', 'Pinyon Script', cursive;
+    --font-cinzel: 'Cinzel', serif;
+    --font-sans: 'Montserrat', -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+}
+
+.font-serif {
+  font-family: var(--font-cormorant);
+}
+
+.font-script {
+  font-family: var(--font-script);
+}
+
+.font-cinzel {
+  font-family: var(--font-cinzel);
+}
+
+.font-sans {
+  font-family: var(--font-sans);
+}
+
+/* Lace scallop borders */
+.lace-edge-bottom {
+  background-image: radial-gradient(circle at 10px 0px, transparent 10px, currentColor 11px);
+  background-size: 20px 20px;
+  background-repeat: repeat-x;
+}
+
+.lace-scallop-border {
+  border-style: solid;
+  border-image: repeating-linear-gradient(45deg, #d4af37, #d4af37 6px, transparent 6px, transparent 12px) 2;
+}
+
+/* Subtle luxury paper & fabric patterns */
+.bg-satin-texture {
+  background-color: #2a0810;
+  background-image: 
+    radial-gradient(circle at 50% 50%, rgba(138, 35, 56, 0.25) 0%, transparent 70%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.03) 0%, transparent 50%, rgba(0, 0, 0, 0.15) 100%);
+}
+
+.bg-paper-texture {
+  background-color: #faf6f0;
+  background-image: radial-gradient(rgba(180, 150, 120, 0.08) 1px, transparent 0);
+  background-size: 16px 16px;
+}
+
+/* Wax seal 3D effect */
+.wax-seal {
+  background: radial-gradient(circle at 35% 35%, #fff2dc 0%, #ecd8ba 40%, #caa985 85%, #9d7b5b 100%);
+  box-shadow: 
+    0 10px 25px -4px rgba(0, 0, 0, 0.6),
+    0 4px 6px -2px rgba(0, 0, 0, 0.4),
+    inset 0 2px 4px rgba(255, 255, 255, 0.6),
+    inset 0 -3px 6px rgba(100, 60, 30, 0.4);
+}
+
+.wax-seal-emboss {
+  filter: drop-shadow(0px 1px 1px rgba(255, 255, 255, 0.8)) drop-shadow(0px -1px 1px rgba(100, 70, 40, 0.7));
+}
+
+/* 3D Envelope Animation Styles */
+.perspective-1200 {
+  perspective: 1200px;
+}
+
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+}
+
+.envelope-flap-origin {
+  transform-origin: top center;
+}
+
+/* Flap rotation states */
+.flap-closed {
+  transform: rotateX(0deg);
+  transition: transform 0.75s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 30;
+}
+
+.flap-open {
+  transform: rotateX(180deg);
+  transition: transform 0.85s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 10;
+}
+
+/* Card slide states */
+.card-tucked {
+  transform: translateY(140px) scale(0.94);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.card-sliding-out {
+  transform: translateY(-40px) scale(0.98);
+  opacity: 1;
+  transition: transform 1.1s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.6s ease;
+}
+
+.card-revealed {
+  transform: translateY(0px) scale(1);
+  opacity: 1;
+  transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.5s ease;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #1f050b;
+}
+::-webkit-scrollbar-thumb {
+  background: #5c1825;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #7a2233;
+}
+
