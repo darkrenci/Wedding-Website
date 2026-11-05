@@ -1,6 +1,7 @@
 import React from 'react';
 import { WeddingDetails } from '../types/wedding';
-import { Sliders, RotateCcw, X, Sparkles } from 'lucide-react';
+import { Sliders, RotateCcw, X, Sparkles, Music } from 'lucide-react';
+import { WEDDING_AUDIO_PRESETS } from '../utils/audio';
 
 interface CustomizerDrawerProps {
   isOpen: boolean;
@@ -207,6 +208,51 @@ export const CustomizerDrawer: React.FC<CustomizerDrawerProps> = ({
               />
               <span className="text-[10px] text-[#caa298] block">
                 Shown on the main opened stationery card next to the swan.
+              </span>
+            </div>
+
+            {/* Background Music Setting */}
+            <div className="bg-[#340912] p-3 rounded-lg border border-[#611b29] space-y-2">
+              <div className="flex items-center gap-1.5">
+                <Music className="w-3.5 h-3.5 text-[#caa48a]" />
+                <label className="text-[11px] font-cinzel tracking-wider text-[#eccdc0] uppercase">
+                  Background Music Track
+                </label>
+              </div>
+
+              {/* Quick Preset Selector */}
+              <select
+                value={wedding.musicUrl || ''}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  const found = WEDDING_AUDIO_PRESETS.find((p) => (p.url || '') === val);
+                  if (found) {
+                    onChange({
+                      ...wedding,
+                      musicUrl: found.url || '',
+                      musicTitle: found.title,
+                      musicType: found.isBuiltIn ? 'builtin' : 'preset',
+                    });
+                  } else {
+                    onChange({
+                      ...wedding,
+                      musicUrl: val,
+                      musicType: val ? 'custom' : 'builtin',
+                      musicTitle: val ? 'Custom Track' : 'Dreamy Harp (Built-in)',
+                    });
+                  }
+                }}
+                className="w-full bg-[#1e0409] border border-[#6b1f2e] rounded px-2.5 py-1.5 text-xs text-white outline-none cursor-pointer"
+              >
+                {WEDDING_AUDIO_PRESETS.map((p) => (
+                  <option key={p.id} value={p.url || ''} className="bg-[#1e0409] text-white">
+                    {p.title}
+                  </option>
+                ))}
+              </select>
+
+              <span className="text-[10px] text-[#caa298] block">
+                More controls (custom audio URL, local device upload &amp; test player) are in Organizer Admin Portal (/admin).
               </span>
             </div>
           </div>

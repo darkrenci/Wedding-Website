@@ -1,5 +1,56 @@
-// Web Audio API romantic melody generator & sound effects
-// 100% self-contained, no external mp3 files that can fail or get blocked
+// Web Audio API & HTML5 Audio Player for Wedding Atmosphere
+// Supports:
+// 1. Built-in Romantic Web Audio Celesta / Harp synthesis (zero bandwidth, instant, 100% reliable)
+// 2. Custom MP3/Audio URLs (paste any audio link)
+// 3. Local Audio file uploads (.mp3, .wav, .m4a from computer/phone)
+// 4. Curated romantic wedding presets
+
+export interface WeddingAudioPreset {
+  id: string;
+  title: string;
+  category: 'synthesized' | 'stream' | 'orchestral' | 'piano';
+  description: string;
+  url?: string;
+  isBuiltIn?: boolean;
+}
+
+export const WEDDING_AUDIO_PRESETS: WeddingAudioPreset[] = [
+  {
+    id: 'builtin-harp',
+    title: 'Dreamy Harp & Celesta (Built-in Web Audio)',
+    category: 'synthesized',
+    description: 'Soft romantic F-major harp arpeggio chords. Instant, runs 100% offline with zero lag.',
+    isBuiltIn: true,
+  },
+  {
+    id: 'canon-in-d',
+    title: "Pachelbel's Canon in D (Acoustic Strings)",
+    category: 'orchestral',
+    description: 'Timeless classical wedding processional with warm cello, violins & harpsichord.',
+    url: 'https://archive.org/download/anonymouspachelbelcanon/Anonymous%20-%20Pachelbel%20Canon.mp3',
+  },
+  {
+    id: 'clair-de-lune',
+    title: 'Debussy - Clair de Lune (Gentle Piano)',
+    category: 'piano',
+    description: 'Intimate, emotional French impressionist grand piano performance.',
+    url: 'https://archive.org/download/debussy_clairdelune_thiollier/debussy_clairdelune_thiollier.mp3',
+  },
+  {
+    id: 'air-on-g',
+    title: 'Bach - Air on the G String (Soft Strings)',
+    category: 'orchestral',
+    description: 'Serene baroque string ensemble, perfect for romantic vows and receptions.',
+    url: 'https://archive.org/download/aironthegstring_201911/Air%20on%20the%20G%20String.mp3',
+  },
+  {
+    id: 'acoustic-guitar-soundhelix',
+    title: 'Acoustic Serenade (Guitar & Piano Instrumental)',
+    category: 'stream',
+    description: 'Modern uplifting instrumental accompaniment with gentle acoustics.',
+    url: 'https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3',
+  },
+];
 
 class WeddingAudioPlayer {
   private ctx: AudioContext | null = null;
@@ -7,8 +58,13 @@ class WeddingAudioPlayer {
   private timerId: number | null = null;
   private currentStep: number = 0;
 
+  // HTMLAudioElement for custom audio files or stream presets
+  private audioElement: HTMLAudioElement | null = null;
+  private musicUrl: string = '';
+  private isBuiltInOnly: boolean = true;
+  private volume: number = 0.7; // 0.0 to 1.0
+
   // Romantic chord progression arpeggios (in F major / D minor, dreamy & gentle)
-  // Frequencies for a soft celesta/harp sound
   private melodyNotes = [
     // Fmaj9
     349.23, 440.0, 523.25, 659.25, 523.25, 440.0,
@@ -27,6 +83,74 @@ class WeddingAudioPlayer {
     // Fmaj7 resolution
     349.23, 440.0, 523.25, 698.46, 523.25, 440.0,
   ];
+
+  constructor() {
+    if (typeof window !== 'undefined') {
+      this.initAudioElement();
+    }
+  }
+
+  private initAudioElement() {
+    if (this.audioElement) return;
+    this.audioElement = new Audio();
+    this.audioElement.loop = true;
+    this.audioElement.volume = this.volume;
+    this.audioElement.preload = 'auto';
+
+    // Fallback gracefully to synthesized harp if streaming audio errors out
+    this.audioElement.addEventListener('error', (e) => {
+      console.warn('Custom audio playback error, falling back to Web Audio harp melody:', e);
+      if (this.isPlaying) {
+        this.stopAudioElement();
+        this.startSynthesizedMusic();
+      }
+    });
+  }
+
+  public configure(config: {
+    musicUrl?: string;
+    musicType?: 'builtin' | 'custom' | 'preset';
+    musicVolume?: number;
+  }) {
+    if (config.musicVolume !== undefined) {
+      this.setVolume(config.musicVolume);
+    }
+
+    const wasPlaying = this.isPlaying;
+    const isBuiltin = config.musicType === 'builtin' || !config.musicUrl || config.musicUrl.trim() === '';
+
+    this.isBuiltInOnly = isBuiltin;
+    this.musicUrl = config.musicUrl ? config.musicUrl.trim() : '';
+
+    this.initAudioElement();
+    if (this.audioElement) {
+      if (!isBuiltin && this.musicUrl) {
+        if (this.audioElement.src !== this.musicUrl) {
+          this.audioElement.src = this.musicUrl;
+          this.audioElement.load();
+        }
+      } else {
+        this.audioElement.removeAttribute('src');
+      }
+    }
+
+    // If currently playing and source changed, restart with new source
+    if (wasPlaying) {
+      this.stopMusic();
+      this.startMusic();
+    }
+  }
+
+  public setVolume(vol: number) {
+    this.volume = Math.max(0, Math.min(1, vol));
+    if (this.audioElement) {
+      this.audioElement.volume = this.volume;
+    }
+  }
+
+  public getVolume(): number {
+    return this.volume;
+  }
 
   private getAudioContext(): AudioContext {
     if (!this.ctx) {
@@ -79,8 +203,9 @@ class WeddingAudioPlayer {
       osc2.type = 'triangle';
       osc2.frequency.setValueAtTime(freq * 2, now);
 
+      const targetGain = 0.08 * (this.volume / 0.7);
       gain.gain.setValueAtTime(0.001, now);
-      gain.gain.linearRampToValueAtTime(0.08, now + 0.04);
+      gain.gain.linearRampToValueAtTime(targetGain, now + 0.04);
       gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
 
       osc1.connect(gain);
@@ -110,16 +235,56 @@ class WeddingAudioPlayer {
 
   public startMusic() {
     this.isPlaying = true;
+    this.initAudioElement();
+
+    // If custom URL is set and not built-in, play the HTML5 audio element
+    if (!this.isBuiltInOnly && this.musicUrl && this.audioElement) {
+      try {
+        this.stopSynthesizedMusic();
+        this.audioElement.volume = this.volume;
+        const playPromise = this.audioElement.play();
+        if (playPromise !== undefined) {
+          playPromise.catch((err) => {
+            console.warn('Audio play prevented or failed, fallback to synth:', err);
+            this.startSynthesizedMusic();
+          });
+        }
+        return;
+      } catch (err) {
+        console.warn('Audio element error, fallback to synth:', err);
+      }
+    }
+
+    // Otherwise play synthesized harp chords
+    this.startSynthesizedMusic();
+  }
+
+  private startSynthesizedMusic() {
+    this.stopAudioElement();
     this.currentStep = 0;
     this.scheduleNextNote();
   }
 
-  public stopMusic() {
-    this.isPlaying = false;
+  private stopAudioElement() {
+    if (this.audioElement) {
+      try {
+        this.audioElement.pause();
+        this.audioElement.currentTime = 0;
+      } catch {}
+    }
+  }
+
+  private stopSynthesizedMusic() {
     if (this.timerId !== null) {
       window.clearTimeout(this.timerId);
       this.timerId = null;
     }
+  }
+
+  public stopMusic() {
+    this.isPlaying = false;
+    this.stopAudioElement();
+    this.stopSynthesizedMusic();
   }
 
   public getIsPlaying(): boolean {

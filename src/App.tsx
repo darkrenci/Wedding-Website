@@ -35,6 +35,10 @@ const DEFAULT_WEDDING: WeddingDetails = {
   envelopeBg: '#380913',
   envelopePhotoUrl: 'https://images.unsplash.com/photo-1606800052052-a08af7148866?auto=format&fit=crop&w=800&q=80',
   couplePhotoUrl: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=800&q=80',
+  musicUrl: '',
+  musicTitle: 'Dreamy Harp & Celesta (Built-in)',
+  musicType: 'builtin',
+  musicVolume: 0.7,
   schedule: [
     {
       time: '4:00 PM',
@@ -125,6 +129,15 @@ export default function App() {
       window.removeEventListener('hashchange', handleRouteCheck);
     };
   }, []);
+
+  // Sync audio player configuration with current wedding music settings
+  useEffect(() => {
+    weddingAudio.configure({
+      musicUrl: wedding.musicUrl,
+      musicType: wedding.musicType,
+      musicVolume: wedding.musicVolume ?? 0.7,
+    });
+  }, [wedding.musicUrl, wedding.musicType, wedding.musicVolume]);
 
   const handleWeddingUpdate = (updated: WeddingDetails) => {
     setWedding(updated);

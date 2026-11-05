@@ -100,7 +100,7 @@ export const CoupleArchCard: React.FC<CoupleArchCardProps> = ({ wedding }) => {
         </div>
 
         {/* Right Side: Deckle Edge "SAVE THE DATE" & Couple Names (matching reference image) */}
-        <div className="w-full sm:w-[48%] p-6 sm:p-8 md:p-10 flex flex-col justify-between text-center relative bg-[#faf6f0]">
+        <div className="w-full sm:w-[52%] md:w-[54%] px-3.5 sm:px-6 md:px-7 py-4 sm:py-6 md:py-8 flex flex-col justify-between text-center relative bg-[#faf6f0] overflow-hidden">
           {/* Deckle/torn paper edge accent at top right */}
           <div className="absolute top-0 right-0 w-24 h-12 overflow-hidden pointer-events-none opacity-40">
             <svg viewBox="0 0 120 50" preserveAspectRatio="none" className="w-full h-full text-[#d8caba]" fill="currentColor">
@@ -109,33 +109,68 @@ export const CoupleArchCard: React.FC<CoupleArchCardProps> = ({ wedding }) => {
           </div>
 
           {/* "SAVE THE DATE" Header */}
-          <div className="pt-2 sm:pt-4">
-            <span className="font-cinzel text-xs sm:text-sm tracking-[0.35em] text-[#845f47] uppercase font-semibold block">
+          <div className="pt-1 sm:pt-2">
+            <span className="font-cinzel text-[11px] sm:text-xs md:text-sm tracking-[0.3em] text-[#845f47] uppercase font-semibold block">
               Save The Date
             </span>
           </div>
 
-          {/* Couple Names */}
-          <div className="my-4 sm:my-6">
-            <h3 className="font-serif text-3xl sm:text-4xl md:text-5xl text-[#46111b] tracking-[0.2em] uppercase font-light">
-              {wedding.brideName}
-            </h3>
-            <div className="relative flex items-center justify-center -my-3 sm:-my-4">
-              <span className="font-script text-4xl sm:text-5xl md:text-6xl text-[#9c5a66] transform -rotate-6">
-                &amp;
-              </span>
-            </div>
-            <h4 className="font-serif text-3xl sm:text-4xl md:text-5xl text-[#46111b] tracking-[0.2em] uppercase font-light">
-              {wedding.groomName}
-            </h4>
-          </div>
+          {/* Couple Names - Adaptive & fully responsive (prevents clipping for long names like RAYNOLD) */}
+          {(() => {
+            const brideName = (wedding.brideName || 'Emma').trim();
+            const groomName = (wedding.groomName || 'Andre').trim();
+            const maxLen = Math.max(brideName.length, groomName.length);
+
+            // Dynamic font sizing & letter spacing based on name length
+            const fontConfig = maxLen <= 4
+              ? { fontClass: 'text-2xl sm:text-3xl md:text-4xl', spacing: '0.16em' }
+              : maxLen <= 7
+              ? { fontClass: 'text-xl sm:text-2xl md:text-3xl', spacing: '0.11em' }
+              : maxLen <= 10
+              ? { fontClass: 'text-lg sm:text-xl md:text-2xl', spacing: '0.06em' }
+              : { fontClass: 'text-base sm:text-lg md:text-xl', spacing: '0.03em' };
+
+            return (
+              <div className="my-3 sm:my-5 w-full max-w-full px-1 flex flex-col items-center justify-center">
+                <div className="w-full max-w-full overflow-hidden text-center">
+                  <h3
+                    className={`font-serif text-[#46111b] uppercase font-light break-words max-w-full inline-block ${fontConfig.fontClass}`}
+                    style={{
+                      letterSpacing: fontConfig.spacing,
+                      marginRight: `-${fontConfig.spacing}`, // Optically balances letter-spacing to prevent rightmost clipping
+                    }}
+                  >
+                    {brideName}
+                  </h3>
+                </div>
+
+                <div className="relative flex items-center justify-center -my-2.5 sm:-my-3.5">
+                  <span className="font-script text-3xl sm:text-4xl md:text-5xl text-[#9c5a66] transform -rotate-6">
+                    &amp;
+                  </span>
+                </div>
+
+                <div className="w-full max-w-full overflow-hidden text-center">
+                  <h4
+                    className={`font-serif text-[#46111b] uppercase font-light break-words max-w-full inline-block ${fontConfig.fontClass}`}
+                    style={{
+                      letterSpacing: fontConfig.spacing,
+                      marginRight: `-${fontConfig.spacing}`, // Optically balances letter-spacing to prevent rightmost clipping
+                    }}
+                  >
+                    {groomName}
+                  </h4>
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Fan/Seashell fluting & Date: 07 · 17 · 2027 (matching image_3e4f3f3c.png) */}
-          <div className="pb-3 sm:pb-5">
+          <div className="pb-2 sm:pb-3">
             {/* Two Symmetrical Shell / Fan fluted rosettes flanking the date */}
-            <div className="flex items-center justify-center gap-2 sm:gap-3 mb-1 opacity-90">
+            <div className="flex items-center justify-center gap-1.5 sm:gap-2.5 mb-0.5 opacity-90 max-w-full">
               {/* Left Fan Shell */}
-              <svg viewBox="0 0 50 30" className="w-8 sm:w-10 h-5 sm:h-6 text-[#c49f84]" fill="none" stroke="currentColor" strokeWidth="1.2">
+              <svg viewBox="0 0 50 30" className="w-6 sm:w-8 h-4 sm:h-5 text-[#c49f84] shrink-0" fill="none" stroke="currentColor" strokeWidth="1.2">
                 <path d="M 45,28 C 30,28 15,20 5,5" />
                 <path d="M 45,28 C 35,22 25,14 15,4" />
                 <path d="M 45,28 C 40,18 35,10 26,3" />
@@ -143,7 +178,7 @@ export const CoupleArchCard: React.FC<CoupleArchCardProps> = ({ wedding }) => {
                 <path d="M 45,28 L 45,2" />
               </svg>
 
-              <span className="font-sans text-xs sm:text-sm tracking-[0.28em] text-[#7d5341] font-semibold uppercase">
+              <span className="font-sans text-[11px] sm:text-xs md:text-sm tracking-[0.2em] sm:tracking-[0.25em] text-[#7d5341] font-semibold uppercase whitespace-nowrap">
                 {(() => {
                   try {
                     const parts = (wedding.weddingDate || '2027-07-17').split('-');
@@ -158,7 +193,7 @@ export const CoupleArchCard: React.FC<CoupleArchCardProps> = ({ wedding }) => {
               </span>
 
               {/* Right Fan Shell */}
-              <svg viewBox="0 0 50 30" className="w-8 sm:w-10 h-5 sm:h-6 text-[#c49f84] transform -scale-x-100" fill="none" stroke="currentColor" strokeWidth="1.2">
+              <svg viewBox="0 0 50 30" className="w-6 sm:w-8 h-4 sm:h-5 text-[#c49f84] shrink-0 transform -scale-x-100" fill="none" stroke="currentColor" strokeWidth="1.2">
                 <path d="M 45,28 C 30,28 15,20 5,5" />
                 <path d="M 45,28 C 35,22 25,14 15,4" />
                 <path d="M 45,28 C 40,18 35,10 26,3" />

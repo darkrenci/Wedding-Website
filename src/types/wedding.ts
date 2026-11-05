@@ -26,6 +26,10 @@ export interface WeddingDetails {
   envelopeBg: string;
   envelopePhotoUrl?: string; // Image 1: Envelope opening sneak peek photo (arch card)
   couplePhotoUrl?: string; // Image 2: Main stationery couple photo (with swan)
+  musicUrl?: string; // Custom audio URL or uploaded audio data URL
+  musicTitle?: string; // e.g. "Dreamy Harp Arpeggios (Romantic)"
+  musicType?: 'builtin' | 'custom' | 'preset';
+  musicVolume?: number; // 0.1 to 1.0
   schedule?: ScheduleItem[];
 }
 

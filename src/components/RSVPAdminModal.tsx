@@ -19,6 +19,7 @@ import {
   testSupabaseConnection,
 } from '../lib/supabase';
 import { SUPABASE_SQL_SCHEMA } from '../services/supabaseGuestService';
+import { weddingAudio, WEDDING_AUDIO_PRESETS, WeddingAudioPreset } from '../utils/audio';
 import {
   Users,
   Download,
@@ -54,6 +55,13 @@ import {
   Heart,
   Palette,
   Save,
+  Music,
+  Volume2,
+  VolumeX,
+  Play,
+  Pause,
+  Disc,
+  Radio,
 } from 'lucide-react';
 
 interface RSVPAdminModalProps {
@@ -81,7 +89,8 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState('');
 
-  const [activeTab, setActiveTab] = useState<'content' | 'registry' | 'rsvps' | 'supabase'>('content');
+  const [activeTab, setActiveTab] = useState<'content' | 'music' | 'registry' | 'rsvps' | 'supabase'>('content');
+  const [isAdminAudioPlaying, setIsAdminAudioPlaying] = useState<boolean>(() => weddingAudio.getIsPlaying());
   const [rsvps, setRsvps] = useState<RSVPResponse[]>([]);
   const [guestList, setGuestList] = useState<InvitedGuest[]>([]);
   const [registryFilter, setRegistryFilter] = useState('');
@@ -263,6 +272,90 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({
     const list = [...(weddingForm.schedule || [])];
     list.splice(index, 1);
     handleUpdateWeddingField('schedule', list);
+  };
+
+  const handleToggleAdminAudio = () => {
+    const isPlaying = weddingAudio.toggleMusic((playing) => {
+      setIsAdminAudioPlaying(playing);
+    });
+    setIsAdminAudioPlaying(isPlaying);
+  };
+
+  const handleSelectMusicPreset = (preset: WeddingAudioPreset) => {
+    const isBuiltIn = !!preset.isBuiltIn;
+    const updated: WeddingDetails = {
+      ...weddingForm,
+      musicType: isBuiltIn ? 'builtin' : 'preset',
+      musicUrl: preset.url || '',
+      musicTitle: preset.title,
+    };
+    setWeddingForm(updated);
+    if (onWeddingUpdate) onWeddingUpdate(updated);
+    weddingAudio.configure({
+      musicUrl: updated.musicUrl,
+      musicType: updated.musicType,
+      musicVolume: updated.musicVolume ?? 0.7,
+    });
+    setActionSuccess(`Music set to "${preset.title}"!`);
+    setTimeout(() => setActionSuccess(''), 3000);
+  };
+
+  const handleCustomMusicUrl = (url: string) => {
+    const trimmed = url.trim();
+    const isCustom = trimmed.length > 0;
+    const updated: WeddingDetails = {
+      ...weddingForm,
+      musicUrl: trimmed,
+      musicType: isCustom ? 'custom' : 'builtin',
+      musicTitle: isCustom ? 'Custom Wedding Music Track' : 'Dreamy Harp & Celesta (Built-in)',
+    };
+    setWeddingForm(updated);
+    if (onWeddingUpdate) onWeddingUpdate(updated);
+    weddingAudio.configure({
+      musicUrl: updated.musicUrl,
+      musicType: updated.musicType,
+      musicVolume: updated.musicVolume ?? 0.7,
+    });
+  };
+
+  const handleAudioFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 20 * 1024 * 1024) {
+      setActionError('Audio file is larger than 20MB. Please choose a smaller MP3 or WAV file.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      const cleanTitle = file.name.replace(/\.[^/.]+$/, '');
+      const updated: WeddingDetails = {
+        ...weddingForm,
+        musicUrl: dataUrl,
+        musicType: 'custom',
+        musicTitle: cleanTitle,
+      };
+      setWeddingForm(updated);
+      if (onWeddingUpdate) onWeddingUpdate(updated);
+      weddingAudio.configure({
+        musicUrl: updated.musicUrl,
+        musicType: updated.musicType,
+        musicVolume: updated.musicVolume ?? 0.7,
+      });
+      setActionSuccess(`Uploaded audio track "${file.name}"!`);
+      setTimeout(() => setActionSuccess(''), 3500);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleVolumeChange = (vol: number) => {
+    const updated: WeddingDetails = {
+      ...weddingForm,
+      musicVolume: vol,
+    };
+    setWeddingForm(updated);
+    if (onWeddingUpdate) onWeddingUpdate(updated);
+    weddingAudio.setVolume(vol);
   };
 
   const handleSaveAllWeddingDetails = (e?: React.FormEvent) => {
@@ -874,6 +967,25 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({
 
               <button
                 type="button"
+                onClick={() => setActiveTab('music')}
+                className={`py-2 px-3 text-xs font-sans font-medium transition-colors border-b-2 flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                  activeTab === 'music'
+                    ? 'border-[#caa48a] text-white font-semibold'
+                    : 'border-transparent text-[#baa09a] hover:text-white'
+                }`}
+              >
+                <Music className="w-3.5 h-3.5 text-[#caa48a]" />
+                <span>Background Music</span>
+                {isAdminAudioPlaying && (
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping inline-block ml-0.5" />
+                )}
+                <span className="bg-[#5a1424] text-[#fcdcd3] text-[9px] px-1.5 py-0.2 rounded-full uppercase">
+                  Audio
+                </span>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => setActiveTab('registry')}
                 className={`py-2 px-3 text-xs font-sans font-medium transition-colors border-b-2 flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
                   activeTab === 'registry'
@@ -1469,6 +1581,243 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({
                     className="px-5 py-2 rounded-xl bg-white hover:bg-[#fbf0ea] text-[#460e19] font-cinzel text-xs font-bold tracking-wider uppercase transition-transform active:scale-95 shadow-lg cursor-pointer"
                   >
                     Save All Changes
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* TAB: BACKGROUND MUSIC & AUDIO STUDIO */}
+            {activeTab === 'music' && (
+              <div className="flex-1 flex flex-col min-h-0 space-y-4 overflow-y-auto pr-1">
+                {/* 1. Header Banner & Live Player Status */}
+                <div className="bg-[#1b0307] p-4 rounded-xl border border-[#4d1622] flex items-center justify-between flex-wrap gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center border shadow-inner ${
+                      isAdminAudioPlaying
+                        ? 'bg-[#3b0b15] border-[#caa48a] text-[#caa48a]'
+                        : 'bg-[#180206] border-[#44121d] text-[#865961]'
+                    }`}>
+                      <Disc className={`w-6 h-6 ${isAdminAudioPlaying ? 'animate-spin' : ''}`} />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-cinzel text-sm sm:text-base text-white font-semibold">
+                          {weddingForm.musicTitle || 'Dreamy Harp & Celesta (Built-in)'}
+                        </h4>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-sans uppercase font-medium ${
+                          weddingForm.musicType === 'custom'
+                            ? 'bg-purple-950 text-purple-200 border border-purple-800'
+                            : weddingForm.musicType === 'preset'
+                            ? 'bg-amber-950 text-amber-200 border border-amber-800'
+                            : 'bg-emerald-950 text-emerald-200 border border-emerald-800'
+                        }`}>
+                          {weddingForm.musicType === 'custom'
+                            ? 'Custom Audio'
+                            : weddingForm.musicType === 'preset'
+                            ? 'Curated Preset'
+                            : 'Built-in Synth'}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-[#caa298] font-sans mt-0.5">
+                        Plays softly when guests click "Open The Invitation" or tap "Play Music".
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Player Controls: Preview Play/Pause & Volume */}
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 bg-[#25050c] px-3 py-1.5 rounded-lg border border-[#4d1622]">
+                      <Volume2 className="w-3.5 h-3.5 text-[#caa48a]" />
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.05"
+                        value={weddingForm.musicVolume ?? 0.7}
+                        onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
+                        className="w-20 accent-[#caa48a] cursor-pointer"
+                        title="Adjust Volume"
+                      />
+                      <span className="text-[10px] text-[#caa298] font-mono w-7 text-right">
+                        {Math.round((weddingForm.musicVolume ?? 0.7) * 100)}%
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleToggleAdminAudio}
+                      className={`px-4 py-2 rounded-xl flex items-center gap-2 text-xs font-cinzel font-bold tracking-wider uppercase transition-transform active:scale-95 cursor-pointer shadow-md ${
+                        isAdminAudioPlaying
+                          ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
+                          : 'bg-[#e8cfc2] hover:bg-white text-[#380912]'
+                      }`}
+                    >
+                      {isAdminAudioPlaying ? (
+                        <>
+                          <Pause className="w-3.5 h-3.5" />
+                          <span>Pause Preview</span>
+                        </>
+                      ) : (
+                        <>
+                          <Play className="w-3.5 h-3.5 fill-current" />
+                          <span>Test Play</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* 2. Curated Romantic Presets */}
+                <div className="bg-[#1e0308] p-4 rounded-xl border border-[#4d1622] space-y-3">
+                  <div className="flex items-center justify-between border-b border-[#3d0b15] pb-2">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-[#caa48a]" />
+                      <span className="font-cinzel text-xs text-white uppercase font-semibold">
+                        Curated Wedding Music Presets
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-[#caa298] font-sans">
+                      1-Click Romantic Atmosphere
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                    {WEDDING_AUDIO_PRESETS.map((preset) => {
+                      const isSelected =
+                        (preset.isBuiltIn && (weddingForm.musicType === 'builtin' || !weddingForm.musicUrl)) ||
+                        (!preset.isBuiltIn && weddingForm.musicUrl === preset.url);
+
+                      return (
+                        <div
+                          key={preset.id}
+                          className={`p-3 rounded-xl border transition-all flex flex-col justify-between gap-2 ${
+                            isSelected
+                              ? 'bg-[#330912] border-[#caa48a] shadow-md ring-1 ring-[#caa48a]/30'
+                              : 'bg-[#180206] border-[#44121d] hover:border-[#681c2c]'
+                          }`}
+                        >
+                          <div>
+                            <div className="flex items-center justify-between gap-2">
+                              <h5 className="font-serif text-sm text-white font-medium">
+                                {preset.title}
+                              </h5>
+                              {isSelected ? (
+                                <span className="flex items-center gap-1 text-[10px] text-emerald-400 font-sans font-semibold">
+                                  <Check className="w-3 h-3" /> Active
+                                </span>
+                              ) : (
+                                <span className="text-[9px] uppercase px-1.5 py-0.5 rounded bg-[#2a050d] text-[#caa298] font-sans">
+                                  {preset.category}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[11px] text-[#caa298] font-sans mt-1 leading-relaxed">
+                              {preset.description}
+                            </p>
+                          </div>
+
+                          <div className="flex items-center justify-between pt-1 border-t border-[#3a0913]/60">
+                            <span className="text-[10px] text-[#865961] font-mono">
+                              {preset.isBuiltIn ? 'No download needed' : 'Classical audio stream'}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleSelectMusicPreset(preset)}
+                              className={`px-3 py-1 rounded-lg text-xs font-sans font-medium transition-colors cursor-pointer ${
+                                isSelected
+                                  ? 'bg-[#caa48a] text-[#2c050c] font-semibold'
+                                  : 'bg-[#3a0a14] hover:bg-[#4d111d] text-[#faede5] border border-[#6b1e2e]'
+                              }`}
+                            >
+                              {isSelected ? 'Currently Selected' : 'Choose Track'}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 3. Custom Music Stream URL & Device Upload */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                  {/* Custom URL Input */}
+                  <div className="bg-[#1e0308] p-4 rounded-xl border border-[#4d1622] space-y-3 flex flex-col justify-between">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 border-b border-[#3d0b15] pb-2">
+                        <Radio className="w-4 h-4 text-[#caa48a]" />
+                        <span className="font-cinzel text-xs text-white uppercase font-semibold">
+                          Custom Audio URL (MP3 / Stream)
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-[#caa298] leading-relaxed">
+                        Paste a direct link to any audio file hosted online (Dropbox, Cloudinary, Vercel, Supabase, or private server).
+                      </p>
+                      <input
+                        type="url"
+                        value={weddingForm.musicType === 'custom' && !weddingForm.musicUrl?.startsWith('data:') ? weddingForm.musicUrl : ''}
+                        onChange={(e) => handleCustomMusicUrl(e.target.value)}
+                        placeholder="https://example.com/our-wedding-song.mp3"
+                        className="w-full bg-[#2a050d] text-white border border-[#5d1726] focus:border-[#caa48a] rounded-lg px-3 py-2 text-xs outline-none font-mono text-[11px]"
+                      />
+                    </div>
+                    <span className="text-[10px] text-[#865961] italic block">
+                      Tip: Ensure the audio URL ends in .mp3, .m4a, or .ogg and has public read access.
+                    </span>
+                  </div>
+
+                  {/* Device File Upload */}
+                  <div className="bg-[#1e0308] p-4 rounded-xl border border-[#4d1622] space-y-3 flex flex-col justify-between">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2 border-b border-[#3d0b15] pb-2">
+                        <Upload className="w-4 h-4 text-[#caa48a]" />
+                        <span className="font-cinzel text-xs text-white uppercase font-semibold">
+                          Upload Music from Computer / Phone
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-[#caa298] leading-relaxed">
+                        Upload your personal couple theme song or recording directly from your device (up to 20MB).
+                      </p>
+                      <div>
+                        <label className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-[#3a0a14] hover:bg-[#4d111d] text-[#faede5] border border-[#6b1e2e] text-xs font-sans font-medium cursor-pointer transition-colors">
+                          <Upload className="w-4 h-4 text-[#caa48a]" />
+                          <span>Choose Audio File from Device</span>
+                          <input
+                            type="file"
+                            accept="audio/mp3,audio/wav,audio/m4a,audio/aac,audio/ogg"
+                            onChange={handleAudioFileUpload}
+                            className="hidden"
+                          />
+                        </label>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] text-[#caa298]">
+                      <span>Formats: MP3, WAV, M4A, OGG</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const builtin = WEDDING_AUDIO_PRESETS[0];
+                          handleSelectMusicPreset(builtin);
+                        }}
+                        className="text-[#caa48a] hover:underline cursor-pointer"
+                      >
+                        Reset to Built-in Harp
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Footer Save Banner */}
+                <div className="bg-[#1b0307] p-3 rounded-xl border border-[#4d1622] flex items-center justify-between">
+                  <span className="text-[11px] text-[#caa298] font-sans flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    Selected music will play in the background for all guests when viewing the invitation.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleSaveAllWeddingDetails()}
+                    className="px-5 py-2 rounded-xl bg-white hover:bg-[#fbf0ea] text-[#460e19] font-cinzel text-xs font-bold tracking-wider uppercase transition-transform active:scale-95 shadow-lg cursor-pointer"
+                  >
+                    Save Music Settings
                   </button>
                 </div>
               </div>
