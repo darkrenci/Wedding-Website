@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { WeddingDetails, RSVPResponse } from '../types/wedding';
 import { CoupleArchCard } from './CoupleArchCard';
 import { CalendarCard } from './CalendarCard';
@@ -9,6 +9,8 @@ import { LaceFlap } from './LaceFlap';
 import { WaxSeal } from './WaxSeal';
 import { weddingAudio } from '../utils/audio';
 import { Volume2, VolumeX, Music, MapPin, Clock, Heart, Send } from 'lucide-react';
+
+import { getLoveNotes, addLoveNote, LoveNote, LOVE_NOTES_SYNC_EVENT } from '../utils/loveNotes';
 
 interface InvitationCardProps {
   wedding: WeddingDetails;
@@ -24,21 +26,22 @@ export const InvitationCard: React.FC<InvitationCardProps> = ({
   onReclose,
 }) => {
   const [isPlayingMusic, setIsPlayingMusic] = useState(weddingAudio.getIsPlaying());
-  const [wishesList, setWishesList] = useState<Array<{ name: string; message: string; date: string }>>([
-    {
-      name: 'Charlotte & James',
-      message: 'So utterly delighted for you two! Counting down the days until we celebrate in NYC! ❤️',
-      date: 'Yesterday'
-    },
-    {
-      name: 'Uncle Robert',
-      message: 'A match made in heaven. Can’t wait for the dancing and wonderful reunion!',
-      date: '2 days ago'
-    }
-  ]);
-  const [newGuestName, setNewGuestName] = useState('');
+  const [wishesList, setWishesList] = useState<LoveNote[]>(() => getLoveNotes());
+  const [newGuestName, setNewGuestName] = useState(guestName || '');
   const [newWishMessage, setNewWishMessage] = useState('');
   const [wishSent, setWishSent] = useState(false);
+
+  useEffect(() => {
+    const handleSync = () => {
+      setWishesList(getLoveNotes());
+    };
+    window.addEventListener(LOVE_NOTES_SYNC_EVENT, handleSync);
+    window.addEventListener('storage', handleSync);
+    return () => {
+      window.removeEventListener(LOVE_NOTES_SYNC_EVENT, handleSync);
+      window.removeEventListener('storage', handleSync);
+    };
+  }, []);
 
   const toggleSound = () => {
     const active = weddingAudio.toggleMusic((playing) => setIsPlayingMusic(playing));
@@ -49,15 +52,7 @@ export const InvitationCard: React.FC<InvitationCardProps> = ({
     e.preventDefault();
     if (!newGuestName.trim() || !newWishMessage.trim()) return;
 
-    setWishesList([
-      {
-        name: newGuestName.trim(),
-        message: newWishMessage.trim(),
-        date: 'Just now'
-      },
-      ...wishesList
-    ]);
-    setNewGuestName('');
+    addLoveNote(newGuestName.trim(), newWishMessage.trim());
     setNewWishMessage('');
     setWishSent(true);
     setTimeout(() => setWishSent(false), 3000);
@@ -111,7 +106,7 @@ export const InvitationCard: React.FC<InvitationCardProps> = ({
               </div>
 
               {/* 3. The Envelope Lower Front Pocket with Centered Ivory Wax Seal */}
-              <div className="relative -mt-16 sm:-mt-20 z-20 w-[calc(100%+8px)] -ml-1 sm:w-[calc(100%+16px)] sm:-ml-2">
+              <div className="relative -mt-8 sm:-mt-10 z-20 w-[calc(100%+8px)] -ml-1 sm:w-[calc(100%+16px)] sm:-ml-2">
                 <div
                   className="w-full bg-gradient-to-t from-[#25040a] via-[#3d0b15] to-[#4c0f1c] pt-12 pb-8 px-6 text-center rounded-b-2xl shadow-[0_18px_36px_rgba(0,0,0,0.5)] relative"
                   style={{

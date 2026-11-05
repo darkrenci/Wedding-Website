@@ -100,7 +100,7 @@ export const CoupleArchCard: React.FC<CoupleArchCardProps> = ({ wedding }) => {
         </div>
 
         {/* Right Side: Deckle Edge "SAVE THE DATE" & Couple Names (matching reference image) */}
-        <div className="w-full sm:w-[52%] md:w-[54%] px-3.5 sm:px-6 md:px-7 py-4 sm:py-6 md:py-8 flex flex-col justify-between text-center relative bg-[#faf6f0] overflow-hidden">
+        <div className="w-full sm:w-[52%] md:w-[54%] px-3.5 sm:px-6 md:px-7 pt-4 sm:pt-6 md:pt-8 pb-20 sm:pb-24 md:pb-28 flex flex-col justify-between text-center relative bg-[#faf6f0] overflow-hidden min-h-[380px] sm:min-h-[440px] md:min-h-[470px]">
           {/* Deckle/torn paper edge accent at top right */}
           <div className="absolute top-0 right-0 w-24 h-12 overflow-hidden pointer-events-none opacity-40">
             <svg viewBox="0 0 120 50" preserveAspectRatio="none" className="w-full h-full text-[#d8caba]" fill="currentColor">
@@ -110,7 +110,7 @@ export const CoupleArchCard: React.FC<CoupleArchCardProps> = ({ wedding }) => {
 
           {/* "SAVE THE DATE" Header */}
           <div className="pt-1 sm:pt-2">
-            <span className="font-cinzel text-[11px] sm:text-xs md:text-sm tracking-[0.3em] text-[#845f47] uppercase font-semibold block">
+            <span className="font-cinzel text-xs sm:text-sm md:text-base tracking-[0.32em] text-[#845f47] uppercase font-bold block">
               Save The Date
             </span>
           </div>
@@ -131,7 +131,7 @@ export const CoupleArchCard: React.FC<CoupleArchCardProps> = ({ wedding }) => {
               : { fontClass: 'text-base sm:text-lg md:text-xl', spacing: '0.03em' };
 
             return (
-              <div className="my-3 sm:my-5 w-full max-w-full px-1 flex flex-col items-center justify-center">
+              <div className="my-2 sm:my-4 w-full max-w-full px-1 flex flex-col items-center justify-center">
                 <div className="w-full max-w-full overflow-hidden text-center">
                   <h3
                     className={`font-serif text-[#46111b] uppercase font-light break-words max-w-full inline-block ${fontConfig.fontClass}`}
@@ -166,11 +166,12 @@ export const CoupleArchCard: React.FC<CoupleArchCardProps> = ({ wedding }) => {
           })()}
 
           {/* Fan/Seashell fluting & Date: 07 · 17 · 2027 (matching image_3e4f3f3c.png) */}
-          <div className="pb-2 sm:pb-3">
+          {/* Positioned above the envelope lower pocket with strong contrast */}
+          <div className="pt-2 pb-1 relative z-10">
             {/* Two Symmetrical Shell / Fan fluted rosettes flanking the date */}
-            <div className="flex items-center justify-center gap-1.5 sm:gap-2.5 mb-0.5 opacity-90 max-w-full">
+            <div className="flex items-center justify-center gap-2 sm:gap-3 mb-0.5 max-w-full">
               {/* Left Fan Shell */}
-              <svg viewBox="0 0 50 30" className="w-6 sm:w-8 h-4 sm:h-5 text-[#c49f84] shrink-0" fill="none" stroke="currentColor" strokeWidth="1.2">
+              <svg viewBox="0 0 50 30" className="w-7 sm:w-9 h-4.5 sm:h-5.5 text-[#b07d5b] shrink-0" fill="none" stroke="currentColor" strokeWidth="1.3">
                 <path d="M 45,28 C 30,28 15,20 5,5" />
                 <path d="M 45,28 C 35,22 25,14 15,4" />
                 <path d="M 45,28 C 40,18 35,10 26,3" />
@@ -178,7 +179,7 @@ export const CoupleArchCard: React.FC<CoupleArchCardProps> = ({ wedding }) => {
                 <path d="M 45,28 L 45,2" />
               </svg>
 
-              <span className="font-sans text-[11px] sm:text-xs md:text-sm tracking-[0.2em] sm:tracking-[0.25em] text-[#7d5341] font-semibold uppercase whitespace-nowrap">
+              <span className="font-sans text-xs sm:text-sm md:text-base tracking-[0.24em] sm:tracking-[0.28em] text-[#4d1622] font-bold uppercase whitespace-nowrap shadow-xs">
                 {(() => {
                   try {
                     const parts = (wedding.weddingDate || '2027-07-17').split('-');
@@ -193,7 +194,7 @@ export const CoupleArchCard: React.FC<CoupleArchCardProps> = ({ wedding }) => {
               </span>
 
               {/* Right Fan Shell */}
-              <svg viewBox="0 0 50 30" className="w-6 sm:w-8 h-4 sm:h-5 text-[#c49f84] shrink-0 transform -scale-x-100" fill="none" stroke="currentColor" strokeWidth="1.2">
+              <svg viewBox="0 0 50 30" className="w-7 sm:w-9 h-4.5 sm:h-5.5 text-[#b07d5b] shrink-0 transform -scale-x-100" fill="none" stroke="currentColor" strokeWidth="1.3">
                 <path d="M 45,28 C 30,28 15,20 5,5" />
                 <path d="M 45,28 C 35,22 25,14 15,4" />
                 <path d="M 45,28 C 40,18 35,10 26,3" />

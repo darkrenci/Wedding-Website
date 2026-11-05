@@ -21,6 +21,15 @@ import {
 import { SUPABASE_SQL_SCHEMA } from '../services/supabaseGuestService';
 import { weddingAudio, WEDDING_AUDIO_PRESETS, WeddingAudioPreset } from '../utils/audio';
 import {
+  getLoveNotes,
+  deleteLoveNote,
+  addLoveNote,
+  resetDefaultLoveNotes,
+  clearAllLoveNotes,
+  LoveNote,
+  LOVE_NOTES_SYNC_EVENT,
+} from '../utils/loveNotes';
+import {
   Users,
   Download,
   Trash2,
@@ -62,6 +71,7 @@ import {
   Pause,
   Disc,
   Radio,
+  MessageSquareHeart,
 } from 'lucide-react';
 
 interface RSVPAdminModalProps {
@@ -89,8 +99,12 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState('');
 
-  const [activeTab, setActiveTab] = useState<'content' | 'music' | 'registry' | 'rsvps' | 'supabase'>('content');
+  const [activeTab, setActiveTab] = useState<'content' | 'schedule' | 'lovenotes' | 'music' | 'registry' | 'rsvps' | 'supabase'>('content');
   const [isAdminAudioPlaying, setIsAdminAudioPlaying] = useState<boolean>(() => weddingAudio.getIsPlaying());
+  const [loveNotesList, setLoveNotesList] = useState<LoveNote[]>(() => getLoveNotes());
+  const [loveNotesFilter, setLoveNotesFilter] = useState('');
+  const [newNoteAuthor, setNewNoteAuthor] = useState('');
+  const [newNoteMessage, setNewNoteMessage] = useState('');
   const [rsvps, setRsvps] = useState<RSVPResponse[]>([]);
   const [guestList, setGuestList] = useState<InvitedGuest[]>([]);
   const [registryFilter, setRegistryFilter] = useState('');
@@ -272,6 +286,86 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({
     const list = [...(weddingForm.schedule || [])];
     list.splice(index, 1);
     handleUpdateWeddingField('schedule', list);
+  };
+
+  // LOVE NOTES REAL-TIME SYNC & HANDLERS
+  useEffect(() => {
+    const handleLoveNotesSync = () => {
+      setLoveNotesList(getLoveNotes());
+    };
+    window.addEventListener(LOVE_NOTES_SYNC_EVENT, handleLoveNotesSync);
+    window.addEventListener('storage', handleLoveNotesSync);
+    return () => {
+      window.removeEventListener(LOVE_NOTES_SYNC_EVENT, handleLoveNotesSync);
+      window.removeEventListener('storage', handleLoveNotesSync);
+    };
+  }, []);
+
+  const handleDeleteLoveNote = (id: string, author: string) => {
+    if (window.confirm(`Delete the love note from "${author}"?`)) {
+      deleteLoveNote(id);
+      setLoveNotesList(getLoveNotes());
+      setActionSuccess(`Deleted love note from "${author}".`);
+      setTimeout(() => setActionSuccess(''), 3000);
+    }
+  };
+
+  const handleAddLoveNoteAdmin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newNoteAuthor.trim() || !newNoteMessage.trim()) return;
+    addLoveNote(newNoteAuthor.trim(), newNoteMessage.trim());
+    setLoveNotesList(getLoveNotes());
+    setNewNoteAuthor('');
+    setNewNoteMessage('');
+    setActionSuccess('Love note added to guest wall!');
+    setTimeout(() => setActionSuccess(''), 3000);
+  };
+
+  const handleResetLoveNotes = () => {
+    if (window.confirm('Reset love notes back to default sample notes?')) {
+      const notes = resetDefaultLoveNotes();
+      setLoveNotesList(notes);
+      setActionSuccess('Reset love notes to defaults.');
+      setTimeout(() => setActionSuccess(''), 3000);
+    }
+  };
+
+  const handleClearAllLoveNotes = () => {
+    if (window.confirm('Are you sure you want to delete ALL love notes? This cannot be undone.')) {
+      clearAllLoveNotes();
+      setLoveNotesList([]);
+      setActionSuccess('Cleared all love notes.');
+      setTimeout(() => setActionSuccess(''), 3000);
+    }
+  };
+
+  const handleApplySchedulePreset = (presetName: 'traditional' | 'garden' | 'evening') => {
+    let newEvents: ScheduleItem[] = [];
+    if (presetName === 'traditional') {
+      newEvents = [
+        { time: '4:00 PM', title: 'The Wedding Ceremony', description: 'Grand Ballroom · Exchange of vows & unity celebration' },
+        { time: '5:30 PM', title: 'Cocktail Hour & Canapés', description: 'Terrace · Signature drinks, champagne & live string quartet' },
+        { time: '7:00 PM', title: 'Dinner & Dancing', description: 'Celebration banquet, heartfelt toasts, wedding cake cutting & party' },
+        { time: '10:30 PM', title: 'Sparkler Send-Off', description: 'Grand Courtyard · Farewell celebration under the stars' },
+      ];
+    } else if (presetName === 'garden') {
+      newEvents = [
+        { time: '2:30 PM', title: 'Welcome Refreshments', description: 'Conservatory Gardens · Herbal iced teas & artisanal refreshments' },
+        { time: '3:30 PM', title: 'Garden Vows', description: 'Rose Pavilion · Romantic exchange of vows amidst flowers' },
+        { time: '4:30 PM', title: 'Acoustic Lawn Social', description: 'Live acoustic guitar, charcuterie & lawn games' },
+        { time: '6:30 PM', title: 'Sunset Banquet', description: 'Glass Pergola · Gourmet family-style dining & toasts' },
+      ];
+    } else {
+      newEvents = [
+        { time: '5:00 PM', title: 'Golden Hour Ceremony', description: 'Sunset Terrace · Vows as twilight descends' },
+        { time: '6:00 PM', title: 'Twilight Cocktails', description: 'Lounge · Craft cocktails & hors d\'oeuvres' },
+        { time: '7:30 PM', title: 'Candlelight Dinner', description: 'Ballroom · Three-course plated dinner & speeches' },
+        { time: '9:00 PM', title: 'Dancing & Late Night Bites', description: 'DJ set, dance floor, midnight dessert bar' },
+      ];
+    }
+    handleUpdateWeddingField('schedule', newEvents);
+    setActionSuccess(`Applied ${presetName} schedule template!`);
+    setTimeout(() => setActionSuccess(''), 3000);
   };
 
   const handleToggleAdminAudio = () => {
@@ -967,6 +1061,38 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({
 
               <button
                 type="button"
+                onClick={() => setActiveTab('schedule')}
+                className={`py-2 px-3 text-xs font-sans font-medium transition-colors border-b-2 flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                  activeTab === 'schedule'
+                    ? 'border-[#caa48a] text-white font-semibold'
+                    : 'border-transparent text-[#baa09a] hover:text-white'
+                }`}
+              >
+                <Clock className="w-3.5 h-3.5 text-[#caa48a]" />
+                <span>Schedule of the Day</span>
+                <span className="bg-[#3e0b16] text-[#faede5] text-[10px] px-1.5 py-0.2 rounded-full font-mono">
+                  {(weddingForm.schedule || []).length}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('lovenotes')}
+                className={`py-2 px-3 text-xs font-sans font-medium transition-colors border-b-2 flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                  activeTab === 'lovenotes'
+                    ? 'border-[#caa48a] text-white font-semibold'
+                    : 'border-transparent text-[#baa09a] hover:text-white'
+                }`}
+              >
+                <MessageSquareHeart className="w-3.5 h-3.5 text-rose-400" />
+                <span>Leave a Love Note</span>
+                <span className="bg-[#5a1424] text-[#fcdcd3] text-[10px] px-1.5 py-0.2 rounded-full font-mono">
+                  {loveNotesList.length}
+                </span>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => setActiveTab('music')}
                 className={`py-2 px-3 text-xs font-sans font-medium transition-colors border-b-2 flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
                   activeTab === 'music'
@@ -1582,6 +1708,341 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({
                   >
                     Save All Changes
                   </button>
+                </div>
+              </div>
+            )}
+
+            {/* TAB: SCHEDULE OF THE DAY TIMELINE */}
+            {activeTab === 'schedule' && (
+              <div className="flex-1 flex flex-col min-h-0 space-y-4 overflow-y-auto pr-1">
+                {/* Header Banner */}
+                <div className="bg-[#1b0307] p-4 rounded-xl border border-[#4d1622] flex items-center justify-between flex-wrap gap-3">
+                  <div>
+                    <h4 className="font-cinzel text-sm sm:text-base text-white font-semibold flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-[#caa48a]" />
+                      Schedule of the Day Timeline
+                    </h4>
+                    <p className="text-[11px] text-[#caa298] font-sans mt-0.5">
+                      Configure your wedding events, times, and descriptions shown in the itinerary card.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleAddScheduleItem}
+                      className="px-3.5 py-1.5 rounded-xl bg-[#caa48a] hover:bg-[#dfbfa8] text-[#2c050c] font-cinzel text-xs font-bold tracking-wider uppercase flex items-center gap-1.5 transition-colors cursor-pointer shadow-sm"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Add Event</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Quick Schedule Templates */}
+                <div className="bg-[#1e0308] p-3.5 rounded-xl border border-[#4d1622] space-y-2">
+                  <span className="text-[10px] font-sans uppercase tracking-wider text-[#caa298] block">
+                    Apply 1-Click Itinerary Templates:
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleApplySchedulePreset('traditional')}
+                      className="p-2.5 rounded-lg border border-[#4d1622] hover:border-[#caa48a] bg-[#180206] text-left transition-colors cursor-pointer group"
+                    >
+                      <span className="text-xs font-serif text-white font-semibold block group-hover:text-[#caa48a]">
+                        Classic Banquet (4 Events)
+                      </span>
+                      <span className="text-[10px] text-[#caa298] block mt-0.5">
+                        Ceremony &rarr; Cocktail Hour &rarr; Banquet &rarr; Send-Off
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleApplySchedulePreset('garden')}
+                      className="p-2.5 rounded-lg border border-[#4d1622] hover:border-[#caa48a] bg-[#180206] text-left transition-colors cursor-pointer group"
+                    >
+                      <span className="text-xs font-serif text-white font-semibold block group-hover:text-[#caa48a]">
+                        Garden Afternoon (4 Events)
+                      </span>
+                      <span className="text-[10px] text-[#caa298] block mt-0.5">
+                        Welcome Drinks &rarr; Garden Vows &rarr; Lawn Social &rarr; Dinner
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleApplySchedulePreset('evening')}
+                      className="p-2.5 rounded-lg border border-[#4d1622] hover:border-[#caa48a] bg-[#180206] text-left transition-colors cursor-pointer group"
+                    >
+                      <span className="text-xs font-serif text-white font-semibold block group-hover:text-[#caa48a]">
+                        Sunset &amp; Dancing (4 Events)
+                      </span>
+                      <span className="text-[10px] text-[#caa298] block mt-0.5">
+                        Golden Hour Vows &rarr; Twilight Cocktails &rarr; Plated Dinner &rarr; DJ Party
+                      </span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Timeline Events List */}
+                <div className="bg-[#1e0308] p-4 rounded-xl border border-[#4d1622] space-y-3">
+                  <div className="flex items-center justify-between border-b border-[#3d0b15] pb-2">
+                    <span className="text-xs font-cinzel text-white uppercase font-semibold">
+                      Wedding Day Events ({ (weddingForm.schedule || []).length })
+                    </span>
+                    <span className="text-[10px] text-[#caa298] font-sans">
+                      Displayed chronologically on the website
+                    </span>
+                  </div>
+
+                  <div className="space-y-3">
+                    {(weddingForm.schedule || []).map((item, idx) => (
+                      <div
+                        key={idx}
+                        className="bg-[#24050c] p-3.5 rounded-xl border border-[#4a121e] grid grid-cols-1 sm:grid-cols-12 gap-2.5 items-center hover:border-[#6a1d2d] transition-colors"
+                      >
+                        <div className="sm:col-span-1 flex items-center justify-center">
+                          <span className="w-6 h-6 rounded-full bg-[#3d0b16] text-[#caa48a] border border-[#6b1e2e] text-xs font-mono flex items-center justify-center font-bold">
+                            {idx + 1}
+                          </span>
+                        </div>
+
+                        <div className="sm:col-span-3">
+                          <label className="block text-[10px] font-sans text-[#caa298] mb-1">
+                            Time
+                          </label>
+                          <input
+                            type="text"
+                            value={item.time}
+                            onChange={(e) => handleScheduleItemChange(idx, 'time', e.target.value)}
+                            placeholder="e.g. 4:00 PM"
+                            className="w-full bg-[#180206] text-white border border-[#4d1622] focus:border-[#caa48a] rounded-lg px-2.5 py-1.5 text-xs outline-none font-sans font-medium"
+                          />
+                        </div>
+
+                        <div className="sm:col-span-4">
+                          <label className="block text-[10px] font-sans text-[#caa298] mb-1">
+                            Event Title
+                          </label>
+                          <input
+                            type="text"
+                            value={item.title}
+                            onChange={(e) => handleScheduleItemChange(idx, 'title', e.target.value)}
+                            placeholder="e.g. The Wedding Ceremony"
+                            className="w-full bg-[#180206] text-white border border-[#4d1622] focus:border-[#caa48a] rounded-lg px-2.5 py-1.5 text-xs outline-none font-serif font-semibold"
+                          />
+                        </div>
+
+                        <div className="sm:col-span-3">
+                          <label className="block text-[10px] font-sans text-[#caa298] mb-1">
+                            Location &amp; Description
+                          </label>
+                          <input
+                            type="text"
+                            value={item.description}
+                            onChange={(e) => handleScheduleItemChange(idx, 'description', e.target.value)}
+                            placeholder="e.g. Grand Ballroom &middot; Exchange of vows"
+                            className="w-full bg-[#180206] text-white border border-[#4d1622] focus:border-[#caa48a] rounded-lg px-2.5 py-1.5 text-xs outline-none text-xs"
+                          />
+                        </div>
+
+                        <div className="sm:col-span-1 flex justify-end">
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveScheduleItem(idx)}
+                            title="Delete this event"
+                            className="p-2 rounded-lg text-[#9c5a66] hover:text-rose-300 hover:bg-[#3d0b16] transition-colors cursor-pointer"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Footer Save Banner */}
+                <div className="bg-[#1b0307] p-3 rounded-xl border border-[#4d1622] flex items-center justify-between">
+                  <span className="text-[11px] text-[#caa298] font-sans flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    Changes update the "Schedule of the Day" card on the website immediately.
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleSaveAllWeddingDetails()}
+                    className="px-5 py-2 rounded-xl bg-white hover:bg-[#fbf0ea] text-[#460e19] font-cinzel text-xs font-bold tracking-wider uppercase transition-transform active:scale-95 shadow-lg cursor-pointer"
+                  >
+                    Save Schedule
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* TAB: LEAVE A LOVE NOTE (GUEST WISHES MANAGER) */}
+            {activeTab === 'lovenotes' && (
+              <div className="flex-1 flex flex-col min-h-0 space-y-4 overflow-y-auto pr-1">
+                {/* Header Banner */}
+                <div className="bg-[#1b0307] p-4 rounded-xl border border-[#4d1622] flex items-center justify-between flex-wrap gap-3">
+                  <div>
+                    <h4 className="font-cinzel text-sm sm:text-base text-white font-semibold flex items-center gap-2">
+                      <MessageSquareHeart className="w-4 h-4 text-rose-400" />
+                      Leave a Love Note Manager
+                    </h4>
+                    <p className="text-[11px] text-[#caa298] font-sans mt-0.5">
+                      View, moderate, and delete guest love notes and wishes displayed on the website.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleResetLoveNotes}
+                      className="px-3 py-1.5 rounded-lg border border-[#6b1e2e] text-[#caa298] hover:text-white hover:bg-[#3d0b16] text-xs font-sans transition-colors cursor-pointer"
+                    >
+                      Reset to Sample Notes
+                    </button>
+                    {loveNotesList.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={handleClearAllLoveNotes}
+                        className="px-3 py-1.5 rounded-lg border border-rose-900 text-rose-300 hover:bg-rose-950/60 text-xs font-sans transition-colors cursor-pointer"
+                      >
+                        Clear All Notes
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Search Bar + Post Note Form */}
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5">
+                  {/* Left: Filter Notes */}
+                  <div className="md:col-span-5 bg-[#1e0308] p-3.5 rounded-xl border border-[#4d1622] space-y-2">
+                    <label className="block text-[11px] font-sans text-[#caa298]">
+                      Search Love Notes
+                    </label>
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 text-[#caa48a] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <input
+                        type="text"
+                        value={loveNotesFilter}
+                        onChange={(e) => setLoveNotesFilter(e.target.value)}
+                        placeholder="Search by author or message..."
+                        className="w-full bg-[#2a050d] text-white border border-[#5d1726] focus:border-[#caa48a] rounded-lg pl-9 pr-3 py-1.5 text-xs outline-none"
+                      />
+                    </div>
+                    <span className="text-[10px] text-[#865961] block">
+                      Showing {
+                        loveNotesList.filter(
+                          (n) =>
+                            n.name.toLowerCase().includes(loveNotesFilter.toLowerCase()) ||
+                            n.message.toLowerCase().includes(loveNotesFilter.toLowerCase())
+                        ).length
+                      } of {loveNotesList.length} total note(s)
+                    </span>
+                  </div>
+
+                  {/* Right: Admin Quick Add Note */}
+                  <form
+                    onSubmit={handleAddLoveNoteAdmin}
+                    className="md:col-span-7 bg-[#1e0308] p-3.5 rounded-xl border border-[#4d1622] space-y-2"
+                  >
+                    <label className="block text-[11px] font-sans text-[#caa298]">
+                      Add a Love Note as Organizer:
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <input
+                        type="text"
+                        value={newNoteAuthor}
+                        onChange={(e) => setNewNoteAuthor(e.target.value)}
+                        placeholder="Author name..."
+                        className="sm:col-span-1 bg-[#2a050d] text-white border border-[#5d1726] focus:border-[#caa48a] rounded-lg px-2.5 py-1.5 text-xs outline-none"
+                      />
+                      <input
+                        type="text"
+                        value={newNoteMessage}
+                        onChange={(e) => setNewNoteMessage(e.target.value)}
+                        placeholder="Write note message..."
+                        className="sm:col-span-2 bg-[#2a050d] text-white border border-[#5d1726] focus:border-[#caa48a] rounded-lg px-2.5 py-1.5 text-xs outline-none"
+                      />
+                    </div>
+                    <div className="flex justify-end pt-1">
+                      <button
+                        type="submit"
+                        disabled={!newNoteAuthor.trim() || !newNoteMessage.trim()}
+                        className="px-3.5 py-1.5 rounded-lg bg-[#caa48a] hover:bg-[#dfbfa8] disabled:opacity-40 text-[#2c050c] font-cinzel text-xs font-bold uppercase transition-colors cursor-pointer"
+                      >
+                        Publish Note
+                      </button>
+                    </div>
+                  </form>
+                </div>
+
+                {/* Love Notes List */}
+                <div className="bg-[#1e0308] p-4 rounded-xl border border-[#4d1622] space-y-3">
+                  <div className="flex items-center justify-between border-b border-[#3d0b15] pb-2">
+                    <span className="text-xs font-cinzel text-white uppercase font-semibold">
+                      Published Guest Love Notes
+                    </span>
+                    <span className="text-[10px] text-[#caa298] font-sans">
+                      Click the red trash button to permanently delete any note
+                    </span>
+                  </div>
+
+                  {loveNotesList.length === 0 ? (
+                    <div className="p-8 text-center bg-[#180206] rounded-xl border border-[#3d0b15]">
+                      <Heart className="w-8 h-8 text-[#caa48a]/40 mx-auto mb-2" />
+                      <p className="text-sm font-serif text-[#caa298]">
+                        No love notes currently on the website.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={handleResetLoveNotes}
+                        className="mt-3 px-3.5 py-1.5 rounded-lg bg-[#3a0a14] hover:bg-[#4d111d] text-[#faede5] border border-[#6b1e2e] text-xs font-sans cursor-pointer"
+                      >
+                        Load Default Sample Notes
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2.5">
+                      {loveNotesList
+                        .filter(
+                          (n) =>
+                            n.name.toLowerCase().includes(loveNotesFilter.toLowerCase()) ||
+                            n.message.toLowerCase().includes(loveNotesFilter.toLowerCase())
+                        )
+                        .map((note) => (
+                          <div
+                            key={note.id}
+                            className="bg-[#24050c] p-3.5 rounded-xl border border-[#4a121e] flex items-start justify-between gap-3 hover:border-[#6a1d2d] transition-colors group"
+                          >
+                            <div className="flex-1 space-y-1">
+                              <div className="flex items-center gap-2">
+                                <h5 className="font-serif text-sm font-bold text-[#fcdcd3]">
+                                  {note.name}
+                                </h5>
+                                <span className="text-[10px] text-[#9c5a66] font-sans">
+                                  {note.date}
+                                </span>
+                              </div>
+                              <p className="font-serif italic text-sm text-[#caa298] leading-relaxed">
+                                "{note.message}"
+                              </p>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteLoveNote(note.id, note.name)}
+                              title={`Delete note from ${note.name}`}
+                              className="p-2 rounded-lg text-rose-400 hover:text-white hover:bg-rose-900/60 transition-colors cursor-pointer border border-transparent hover:border-rose-700 shrink-0"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        ))}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
