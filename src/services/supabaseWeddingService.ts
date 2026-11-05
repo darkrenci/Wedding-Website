@@ -106,20 +106,15 @@ interface AudioRecordMeta {
  * Mobile-safe base64 to Blob decoder that avoids WebKit URL-length crashes.
  * Works seamlessly on iOS Safari, Android Chrome, and desktop browsers.
  */
-function base64ToBlob(base64Data: string, contentType: string = 'audio/mp3'): Blob {
+function base64ToBlob(base64Data: string, contentType: string = 'audio/mpeg'): Blob {
   const clean = base64Data.includes(',') ? base64Data.split(',')[1] : base64Data;
-  const byteCharacters = atob(clean);
-  const byteArrays: Uint8Array[] = [];
-  const sliceSize = 512 * 1024;
-  for (let offset = 0; offset < byteCharacters.length; offset += sliceSize) {
-    const slice = byteCharacters.slice(offset, offset + sliceSize);
-    const byteNumbers = new Array(slice.length);
-    for (let i = 0; i < slice.length; i++) {
-      byteNumbers[i] = slice.charCodeAt(i);
-    }
-    byteArrays.push(new Uint8Array(byteNumbers));
+  const binaryString = atob(clean);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
   }
-  return new Blob(byteArrays as BlobPart[], { type: contentType });
+  return new Blob([bytes], { type: contentType || 'audio/mpeg' });
 }
 
 /**

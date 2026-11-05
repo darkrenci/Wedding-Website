@@ -79,9 +79,10 @@ export async function saveCustomAudioFile(file: File | Blob, name: string): Prom
 }
 
 /**
- * Loads the saved custom audio file from IndexedDB and returns a playable Object URL
+ * Loads the saved custom audio file from IndexedDB and returns a playable Object URL.
+ * If expectedName is provided, validates that the cached track matches the desired track.
  */
-export async function loadCustomAudioFile(): Promise<{ url: string; name: string } | null> {
+export async function loadCustomAudioFile(expectedName?: string): Promise<{ url: string; name: string } | null> {
   try {
     const db = await openDB();
     return new Promise((resolve) => {
@@ -92,6 +93,12 @@ export async function loadCustomAudioFile(): Promise<{ url: string; name: string
       getRequest.onsuccess = () => {
         const result = getRequest.result as StoredAudioRecord | undefined;
         if (result && result.blob) {
+          // If a specific track name is expected and doesn't match the cache, treat as cache miss
+          if (expectedName && result.name && result.name.trim().toLowerCase() !== expectedName.trim().toLowerCase()) {
+            resolve(null);
+            return;
+          }
+
           const objectUrl = URL.createObjectURL(result.blob);
           resolve({
             url: objectUrl,

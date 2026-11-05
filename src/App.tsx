@@ -18,8 +18,8 @@ import { fetchWeddingDetailsFromSupabase, saveWeddingDetailsToSupabase } from '.
 import { syncLoveNotesFromSupabase } from './utils/loveNotes';
 
 const DEFAULT_WEDDING: WeddingDetails = {
-  brideName: 'Emma',
-  groomName: 'Andre',
+  brideName: 'Kath',
+  groomName: 'Raynold',
   coupleInitials: 'EA',
   tagline: 'Formal invitation to follow',
   introHeading: 'A LOVE LETTER FROM',
@@ -153,9 +153,10 @@ export default function App() {
     weddingAudio.configure({
       musicUrl: wedding.musicUrl,
       musicType: wedding.musicType,
+      musicTitle: wedding.musicTitle,
       musicVolume: wedding.musicVolume ?? 0.7,
     });
-  }, [wedding.musicUrl, wedding.musicType, wedding.musicVolume]);
+  }, [wedding.musicUrl, wedding.musicType, wedding.musicTitle, wedding.musicVolume]);
 
   const handleWeddingUpdate = (updated: WeddingDetails) => {
     setWedding(updated);

@@ -119,6 +119,7 @@ class WeddingAudioPlayer {
     musicUrl?: string;
     musicType?: 'builtin' | 'custom' | 'preset';
     musicVolume?: number;
+    musicTitle?: string;
     customBlobUrl?: string;
   }) {
     if (config.musicVolume !== undefined) {
@@ -185,9 +186,9 @@ class WeddingAudioPlayer {
       }
 
       this.loadingCustomPromise = (async () => {
-        // Step A: Check local IndexedDB first (instant on current device)
+        // Step A: Check local IndexedDB first, ensuring title matches desired song
         try {
-          const localSaved = await loadCustomAudioFile();
+          const localSaved = await loadCustomAudioFile(config.musicTitle);
           if (localSaved && localSaved.url && this.audioElement) {
             this.activeBlobUrl = localSaved.url;
             this.audioElement.src = localSaved.url;
@@ -200,7 +201,7 @@ class WeddingAudioPlayer {
           }
         } catch {}
 
-        // Step B: Not in local storage (e.g. phone or another computer), pull from Supabase!
+        // Step B: Cache miss or on another device (e.g. phone), fetch from Supabase!
         try {
           const remoteAudio = await fetchCustomAudioFromSupabase();
           if (remoteAudio && remoteAudio.url && this.audioElement) {
