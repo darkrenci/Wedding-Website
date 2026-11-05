@@ -14,7 +14,7 @@ export const CoupleArchCard: React.FC<CoupleArchCardProps> = ({ wedding }) => {
         <div className="relative w-full sm:w-[52%] min-h-[280px] sm:min-h-[340px] md:min-h-[380px] overflow-hidden bg-[#ded3c5]">
           {/* Couple photo - Bride in white veil & gown, groom in tuxedo */}
           <img
-            src="https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=800&q=80"
+            src={wedding.couplePhotoUrl || "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=800&q=80"}
             alt={`${wedding.brideName} and ${wedding.groomName}`}
             className="w-full h-full object-cover filter contrast-[1.02] grayscale-[20%] sepia-[15%]"
             referrerPolicy="no-referrer"
@@ -144,7 +144,17 @@ export const CoupleArchCard: React.FC<CoupleArchCardProps> = ({ wedding }) => {
               </svg>
 
               <span className="font-sans text-xs sm:text-sm tracking-[0.28em] text-[#7d5341] font-semibold uppercase">
-                07 &middot; 17 &middot; 2027
+                {(() => {
+                  try {
+                    const parts = (wedding.weddingDate || '2027-07-17').split('-');
+                    if (parts.length === 3) {
+                      return `${parts[1]} · ${parts[2]} · ${parts[0]}`;
+                    }
+                  } catch {
+                    // fallback
+                  }
+                  return '07 · 17 · 2027';
+                })()}
               </span>
 
               {/* Right Fan Shell */}

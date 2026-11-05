@@ -204,7 +204,7 @@ export const AnimatedEnvelopeExperience: React.FC<AnimatedEnvelopeProps> = ({
                 />
               </div>
               <p className="font-serif italic text-sm text-[#805542] mt-3">
-                The moment has arrived...
+                {wedding.subHeading || 'The moment has arrived...'}
               </p>
               <h3 className="font-script text-4xl sm:text-5xl text-[#531320]">
                 We're getting Married

@@ -11,12 +11,17 @@ export const CalendarCard: React.FC<CalendarCardProps> = ({ wedding }) => {
   const [showModal, setShowModal] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Calendar for July 2027 (Starts on Thursday July 1, 2027)
-  // July 2027: 31 days. July 1 is a Thursday (column index 4 if Sunday=0)
+  // Dynamically calculate calendar days & start day of week for any month/year configured by admin
   const daysOfWeek = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
-  const startDayOffset = 4; // Thursday
-  const totalDays = 31;
-  const targetDay = wedding.dayNumber || 17;
+  const dateParts = (wedding.weddingDate || '2027-07-17').split('-');
+  const year = parseInt(dateParts[0], 10) || 2027;
+  const monthIndex = (parseInt(dateParts[1], 10) || 7) - 1;
+  const targetDay = wedding.dayNumber || parseInt(dateParts[2], 10) || 17;
+  
+  // Day of week the month starts on (0 = Sunday, 1 = Monday, etc.)
+  const startDayOffset = new Date(year, monthIndex, 1).getDay();
+  // Total days in the month (28, 29, 30, or 31)
+  const totalDays = new Date(year, monthIndex + 1, 0).getDate();
 
   const handleCopyDate = () => {
     navigator.clipboard.writeText(`${wedding.brideName} & ${wedding.groomName} Wedding: ${wedding.dateFormatted} at ${wedding.venueName}, ${wedding.locationCity}`);

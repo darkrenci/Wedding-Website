@@ -15,8 +15,9 @@ export const CountdownCard: React.FC<CountdownCardProps> = ({ wedding }) => {
   }>({ days: 881, hours: 16, minutes: 1, seconds: 20 });
 
   useEffect(() => {
-    // If target date is July 17, 2027:
-    const target = new Date('2027-07-17T16:00:00');
+    // Compute countdown to wedding date (defaults to 16:00 ceremony time)
+    const rawDate = wedding.weddingDate || '2027-07-17';
+    const target = new Date(rawDate.includes('T') ? rawDate : `${rawDate}T16:00:00`);
 
     const updateTimer = () => {
       const now = new Date();
@@ -29,7 +30,7 @@ export const CountdownCard: React.FC<CountdownCardProps> = ({ wedding }) => {
 
       const days = Math.floor(difference / (1000 * 60 * 60 * 24));
       const hours = Math.floor((difference / (1000 * 60 * 60)) % 24);
-      const minutes = Math.floor((difference / 1000 / 60) % 60);
+      const minutes = Math.floor((difference / (1000 * 60)) % 60);
       const seconds = Math.floor((difference / 1000) % 60);
 
       setTimeLeft({ days, hours, minutes, seconds });
@@ -65,7 +66,7 @@ export const CountdownCard: React.FC<CountdownCardProps> = ({ wedding }) => {
 
       {/* Script Footnote */}
       <p className="font-script text-2xl sm:text-3xl text-[#ecd7cb] mt-5 tracking-wide">
-        Formal invitation to follow
+        {wedding.tagline || 'Formal invitation to follow'}
       </p>
     </div>
   );

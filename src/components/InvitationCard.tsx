@@ -145,7 +145,7 @@ export const InvitationCard: React.FC<InvitationCardProps> = ({
           {/* Section 2: "The moment has arrived..." & "We're getting Married" (matching screenshots 4s, 6s) */}
           <div className="text-center my-10 sm:my-14">
             <p className="font-serif italic text-base sm:text-lg text-[#805542] tracking-wide mb-1">
-              The moment has arrived...
+              {wedding.subHeading || 'The moment has arrived...'}
             </p>
 
             <h2 className="font-script text-5xl sm:text-6xl md:text-7xl text-[#531320] leading-tight my-3">
@@ -182,7 +182,7 @@ export const InvitationCard: React.FC<InvitationCardProps> = ({
               </p>
               <div className="inline-flex items-center gap-1.5 text-xs text-[#934c5b] font-medium mt-2">
                 <Clock className="w-3.5 h-3.5" />
-                <span>Ceremony begins promptly at 4:00 PM</span>
+                <span>{wedding.ceremonyTime || 'Ceremony begins promptly at 4:00 PM'}</span>
               </div>
             </div>
           </div>
@@ -217,27 +217,41 @@ export const InvitationCard: React.FC<InvitationCardProps> = ({
               Schedule of the Day
             </h4>
             <div className="space-y-4 font-serif">
-              <div className="flex items-start gap-4 border-b border-[#e8ded3] pb-3">
-                <span className="font-sans font-semibold text-xs sm:text-sm text-[#7e2537] w-20 shrink-0 pt-0.5">4:00 PM</span>
-                <div>
-                  <p className="font-semibold text-base text-[#3a0d16]">The Wedding Ceremony</p>
-                  <p className="text-xs sm:text-sm text-[#735142]">Grand Ballroom &middot; Exchange of vows &amp; unity celebration</p>
+              {(wedding.schedule && wedding.schedule.length > 0
+                ? wedding.schedule
+                : [
+                    {
+                      time: '4:00 PM',
+                      title: 'The Wedding Ceremony',
+                      description: 'Grand Ballroom · Exchange of vows & unity celebration',
+                    },
+                    {
+                      time: '5:30 PM',
+                      title: 'Cocktail Hour & Canapés',
+                      description: 'Terrace · Signature drinks, champagne & live string quartet',
+                    },
+                    {
+                      time: '7:00 PM',
+                      title: 'Dinner & Dancing',
+                      description: 'Celebration banquet, heartfelt toasts, wedding cake cutting & party',
+                    },
+                  ]
+              ).map((event, idx, arr) => (
+                <div
+                  key={idx}
+                  className={`flex items-start gap-4 ${
+                    idx < arr.length - 1 ? 'border-b border-[#e8ded3] pb-3' : ''
+                  }`}
+                >
+                  <span className="font-sans font-semibold text-xs sm:text-sm text-[#7e2537] w-20 shrink-0 pt-0.5">
+                    {event.time}
+                  </span>
+                  <div>
+                    <p className="font-semibold text-base text-[#3a0d16]">{event.title}</p>
+                    <p className="text-xs sm:text-sm text-[#735142]">{event.description}</p>
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-start gap-4 border-b border-[#e8ded3] pb-3">
-                <span className="font-sans font-semibold text-xs sm:text-sm text-[#7e2537] w-20 shrink-0 pt-0.5">5:30 PM</span>
-                <div>
-                  <p className="font-semibold text-base text-[#3a0d16]">Cocktail Hour &amp; Canapés</p>
-                  <p className="text-xs sm:text-sm text-[#735142]">Terrace &middot; Signature drinks, champagne &amp; live string quartet</p>
-                </div>
-              </div>
-              <div className="flex items-start gap-4">
-                <span className="font-sans font-semibold text-xs sm:text-sm text-[#7e2537] w-20 shrink-0 pt-0.5">7:00 PM</span>
-                <div>
-                  <p className="font-semibold text-base text-[#3a0d16]">Dinner &amp; Dancing</p>
-                  <p className="text-xs sm:text-sm text-[#735142]">Celebration banquet, heartfelt toasts, wedding cake cutting &amp; party</p>
-                </div>
-              </div>
+              ))}
             </div>
           </section>
 

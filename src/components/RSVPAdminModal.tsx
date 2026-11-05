@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { RSVPResponse, InvitedGuest } from '../types/wedding';
+import { RSVPResponse, InvitedGuest, WeddingDetails, ScheduleItem } from '../types/wedding';
 import {
   getInvitedGuests,
   addInvitedGuest,
@@ -44,26 +44,211 @@ import {
   Unlock,
   ChevronDown,
   ChevronUp,
+  Sliders,
+  Image,
+  Calendar,
+  MapPin,
+  Clock,
+  Plus,
+  Upload,
+  Heart,
+  Palette,
+  Save,
 } from 'lucide-react';
 
 interface RSVPAdminModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onOpenCustomizer?: () => void;
+  wedding?: WeddingDetails;
+  onWeddingUpdate?: (updated: WeddingDetails) => void;
+  onResetDefaults?: () => void;
 }
 
 const DEFAULT_ADMIN_PIN = '1108';
 
-export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({ isOpen, onClose }) => {
+export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({
+  isOpen,
+  onClose,
+  onOpenCustomizer,
+  wedding,
+  onWeddingUpdate,
+  onResetDefaults,
+}) => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     return sessionStorage.getItem('wedding_admin_authed') === 'true';
   });
   const [pinInput, setPinInput] = useState('');
   const [pinError, setPinError] = useState('');
 
-  const [activeTab, setActiveTab] = useState<'registry' | 'rsvps' | 'supabase'>('registry');
+  const [activeTab, setActiveTab] = useState<'content' | 'registry' | 'rsvps' | 'supabase'>('content');
   const [rsvps, setRsvps] = useState<RSVPResponse[]>([]);
   const [guestList, setGuestList] = useState<InvitedGuest[]>([]);
   const [registryFilter, setRegistryFilter] = useState('');
+
+  // 0. WEDDING INVITATION CONTENT & PICTURES STATE
+  const [weddingForm, setWeddingForm] = useState<WeddingDetails>(() => {
+    if (wedding) return wedding;
+    try {
+      const saved = localStorage.getItem('wedding_invitation_config');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return {
+      brideName: 'Emma',
+      groomName: 'Andre',
+      coupleInitials: 'EA',
+      tagline: 'Formal invitation to follow',
+      introHeading: 'A LOVE LETTER FROM',
+      subHeading: 'The moment has arrived...',
+      weddingDate: '2027-07-17',
+      dateFormatted: 'Saturday, 17 July 2027',
+      monthYear: 'JULY 2027',
+      dayNumber: 17,
+      locationCity: 'New York City',
+      venueName: 'The Plaza & Central Park Conservatory',
+      venueAddress: '768 5th Ave, New York, NY 10019',
+      ceremonyTime: 'Ceremony begins promptly at 4:00 PM',
+      rsvpDeadline: 'January 2027',
+      contactEmail: 'wedding@emmaandre.com',
+      primaryColor: '#480e19',
+      envelopeBg: '#380913',
+      couplePhotoUrl: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=800&q=80',
+      schedule: [
+        { time: '4:00 PM', title: 'The Wedding Ceremony', description: 'Grand Ballroom · Exchange of vows & unity celebration' },
+        { time: '5:30 PM', title: 'Cocktail Hour & Canapés', description: 'Terrace · Signature drinks, champagne & live string quartet' },
+        { time: '7:00 PM', title: 'Dinner & Dancing', description: 'Celebration banquet, heartfelt toasts, wedding cake cutting & party' },
+      ],
+    };
+  });
+
+  useEffect(() => {
+    if (wedding) {
+      setWeddingForm(wedding);
+    }
+  }, [wedding]);
+
+  const PHOTO_PRESETS = [
+    {
+      title: 'Classic Arch Veil',
+      url: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=800&q=80',
+    },
+    {
+      title: 'Romantic Sunset Kiss',
+      url: 'https://images.unsplash.com/photo-1583939003579-730e3918a45a?auto=format&fit=crop&w=800&q=80',
+    },
+    {
+      title: 'Fine Art Studio',
+      url: 'https://images.unsplash.com/photo-1606800052052-a08af7148866?auto=format&fit=crop&w=800&q=80',
+    },
+    {
+      title: 'Garden Romance',
+      url: 'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&w=800&q=80',
+    },
+  ];
+
+  const handleUpdateWeddingField = <K extends keyof WeddingDetails>(
+    field: K,
+    val: WeddingDetails[K]
+  ) => {
+    const updated = { ...weddingForm, [field]: val };
+    setWeddingForm(updated);
+    if (onWeddingUpdate) onWeddingUpdate(updated);
+  };
+
+  const handleDateChange = (newDateStr: string) => {
+    try {
+      const parts = newDateStr.split('-');
+      if (parts.length === 3) {
+        const y = parseInt(parts[0], 10);
+        const m = parseInt(parts[1], 10) - 1;
+        const d = parseInt(parts[2], 10);
+        const dateObj = new Date(y, m, d);
+        const monthNames = [
+          'JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE',
+          'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER'
+        ];
+        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const fullMonth = monthNames[m] || 'JULY';
+        const dayName = dayNames[dateObj.getDay()] || 'Saturday';
+        const autoFormatted = `${dayName}, ${d} ${fullMonth.charAt(0) + fullMonth.slice(1).toLowerCase()} ${y}`;
+        const autoMonthYear = `${fullMonth} ${y}`;
+
+        const updated: WeddingDetails = {
+          ...weddingForm,
+          weddingDate: newDateStr,
+          dayNumber: d,
+          monthYear: autoMonthYear,
+          dateFormatted: autoFormatted,
+        };
+        setWeddingForm(updated);
+        if (onWeddingUpdate) onWeddingUpdate(updated);
+        return;
+      }
+    } catch {}
+    handleUpdateWeddingField('weddingDate', newDateStr);
+  };
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 8 * 1024 * 1024) {
+      setActionError('Image file is larger than 8MB. Please choose a smaller image.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      handleUpdateWeddingField('couplePhotoUrl', dataUrl);
+      setActionSuccess('Couple photo uploaded and applied!');
+      setTimeout(() => setActionSuccess(''), 3000);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleScheduleItemChange = (index: number, field: keyof ScheduleItem, val: string) => {
+    const list = [...(weddingForm.schedule || [])];
+    if (!list[index]) return;
+    list[index] = { ...list[index], [field]: val };
+    handleUpdateWeddingField('schedule', list);
+  };
+
+  const handleAddScheduleItem = () => {
+    const list = [...(weddingForm.schedule || [])];
+    list.push({
+      time: '8:30 PM',
+      title: 'After Party & Cake Cutting',
+      description: 'Champagne toast & midnight celebration',
+    });
+    handleUpdateWeddingField('schedule', list);
+  };
+
+  const handleRemoveScheduleItem = (index: number) => {
+    const list = [...(weddingForm.schedule || [])];
+    list.splice(index, 1);
+    handleUpdateWeddingField('schedule', list);
+  };
+
+  const handleSaveAllWeddingDetails = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (onWeddingUpdate) {
+      onWeddingUpdate(weddingForm);
+    }
+    try {
+      localStorage.setItem('wedding_invitation_config', JSON.stringify(weddingForm));
+    } catch {}
+    setActionSuccess('Wedding invitation text, dates, venue & pictures saved!');
+    setTimeout(() => setActionSuccess(''), 4000);
+  };
+
+  const handleResetWeddingDetails = () => {
+    if (window.confirm('Reset wedding invitation text, date, and venue back to sample defaults?')) {
+      if (onResetDefaults) {
+        onResetDefaults();
+      }
+      setActionSuccess('Reset invitation details to sample defaults.');
+      setTimeout(() => setActionSuccess(''), 3000);
+    }
+  };
 
   // Add single guest state
   const [newGuestName, setNewGuestName] = useState('');
@@ -538,8 +723,21 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({ isOpen, onClose 
               <span>{supabaseConfig.isConfigured ? 'Supabase Connected' : 'Local Storage'}</span>
             </div>
 
+            {isAuthenticated && onOpenCustomizer && (
+              <button
+                type="button"
+                onClick={onOpenCustomizer}
+                title="Customize Couple Names & Wedding Details"
+                className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#3d0b16] hover:bg-[#521723] text-[#f7eade] border border-[#6b1e2e] text-xs font-sans transition-colors cursor-pointer"
+              >
+                <Sliders className="w-3.5 h-3.5 text-[#caa48a]" />
+                <span className="hidden sm:inline text-[11px]">Edit Details</span>
+              </button>
+            )}
+
             {isAuthenticated && (
               <button
+                type="button"
                 onClick={handleLockAdmin}
                 title="Lock Admin Panel"
                 className="p-1.5 rounded-lg bg-[#3d0b16] hover:bg-[#521723] text-[#caa298] hover:text-white border border-[#6b1e2e] transition-colors cursor-pointer"
@@ -549,10 +747,13 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({ isOpen, onClose 
             )}
 
             <button
+              type="button"
               onClick={onClose}
-              className="text-[#baa09a] hover:text-white p-1 rounded-lg hover:bg-[#3d0b16] transition-colors cursor-pointer"
+              title="Close and exit to wedding website"
+              className="flex items-center gap-1 text-[#baa09a] hover:text-white py-1 px-2 rounded-lg hover:bg-[#3d0b16] border border-transparent hover:border-[#631826] transition-colors cursor-pointer"
             >
-              <X className="w-5 h-5" />
+              <span className="text-xs font-sans">Exit</span>
+              <X className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -620,6 +821,22 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({ isOpen, onClose 
             <div className="flex border-b border-[#521723] pt-2 mb-3 shrink-0 gap-2 overflow-x-auto">
               <button
                 type="button"
+                onClick={() => setActiveTab('content')}
+                className={`py-2 px-3 text-xs font-sans font-medium transition-colors border-b-2 flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
+                  activeTab === 'content'
+                    ? 'border-[#caa48a] text-white font-semibold'
+                    : 'border-transparent text-[#baa09a] hover:text-white'
+                }`}
+              >
+                <Sliders className="w-3.5 h-3.5 text-[#caa48a]" />
+                <span>Invitation Text &amp; Pictures</span>
+                <span className="bg-[#5a1424] text-[#fcdcd3] text-[9px] px-1.5 py-0.2 rounded-full uppercase">
+                  Content
+                </span>
+              </button>
+
+              <button
+                type="button"
                 onClick={() => setActiveTab('registry')}
                 className={`py-2 px-3 text-xs font-sans font-medium transition-colors border-b-2 flex items-center gap-1.5 cursor-pointer whitespace-nowrap ${
                   activeTab === 'registry'
@@ -663,6 +880,467 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({ isOpen, onClose 
                 <span>Supabase Cloud &amp; SQL</span>
               </button>
             </div>
+
+            {/* TAB 0: WEDDING INVITATION DETAILS, PHOTOS & DATES */}
+            {activeTab === 'content' && (
+              <div className="flex-1 flex flex-col min-h-0 space-y-4 overflow-y-auto pr-1">
+                {/* Header banner */}
+                <div className="bg-[#1b0307] p-3.5 rounded-xl border border-[#4d1622] flex items-center justify-between flex-wrap gap-2">
+                  <div>
+                    <h4 className="font-cinzel text-xs sm:text-sm text-white font-semibold flex items-center gap-2">
+                      <Sliders className="w-4 h-4 text-[#caa48a]" />
+                      Invitation Text, Pictures &amp; Dates Editor
+                    </h4>
+                    <p className="text-[11px] text-[#caa298] font-sans mt-0.5">
+                      All changes apply live to the wedding invitation and save automatically.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleResetWeddingDetails}
+                      className="px-2.5 py-1.5 rounded-lg bg-[#2e0710] hover:bg-[#420b16] border border-[#6b1e2e] text-[#caa298] hover:text-white text-xs font-sans transition-colors cursor-pointer flex items-center gap-1.5"
+                    >
+                      <RotateCcw className="w-3 h-3" />
+                      <span>Reset Defaults</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSaveAllWeddingDetails()}
+                      className="px-3.5 py-1.5 rounded-lg bg-emerald-950 hover:bg-emerald-900 border border-emerald-700 text-emerald-200 text-xs font-sans font-medium transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm"
+                    >
+                      <Save className="w-3.5 h-3.5" />
+                      <span>Save Changes</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* LEFT COLUMN: Couple Info & Photo */}
+                  <div className="space-y-4">
+                    {/* 1. Couple Names & Monogram */}
+                    <div className="bg-[#1e0308] p-4 rounded-xl border border-[#4d1622] space-y-3">
+                      <div className="flex items-center gap-2 border-b border-[#3d0b15] pb-2">
+                        <Heart className="w-4 h-4 text-[#caa48a]" />
+                        <span className="font-cinzel text-xs text-white uppercase font-semibold">
+                          Couple Names &amp; Monogram Seal
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <div>
+                          <label className="block text-[11px] font-sans text-[#caa298] mb-1">
+                            Bride Name
+                          </label>
+                          <input
+                            type="text"
+                            value={weddingForm.brideName}
+                            onChange={(e) => handleUpdateWeddingField('brideName', e.target.value)}
+                            placeholder="e.g. Emma"
+                            className="w-full bg-[#2a050d] text-white border border-[#5d1726] focus:border-[#caa48a] rounded-lg px-3 py-2 text-xs outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-sans text-[#caa298] mb-1">
+                            Groom Name
+                          </label>
+                          <input
+                            type="text"
+                            value={weddingForm.groomName}
+                            onChange={(e) => handleUpdateWeddingField('groomName', e.target.value)}
+                            placeholder="e.g. Andre"
+                            className="w-full bg-[#2a050d] text-white border border-[#5d1726] focus:border-[#caa48a] rounded-lg px-3 py-2 text-xs outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <div>
+                          <label className="block text-[11px] font-sans text-[#caa298] mb-1">
+                            Monogram / Seal Initials
+                          </label>
+                          <input
+                            type="text"
+                            value={weddingForm.coupleInitials}
+                            onChange={(e) => handleUpdateWeddingField('coupleInitials', e.target.value.toUpperCase())}
+                            maxLength={4}
+                            placeholder="e.g. EA"
+                            className="w-full bg-[#2a050d] text-white border border-[#5d1726] focus:border-[#caa48a] rounded-lg px-3 py-2 text-xs outline-none font-serif tracking-widest text-center"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-sans text-[#caa298] mb-1">
+                            Envelope Flap Heading
+                          </label>
+                          <input
+                            type="text"
+                            value={weddingForm.introHeading}
+                            onChange={(e) => handleUpdateWeddingField('introHeading', e.target.value)}
+                            placeholder="e.g. A LOVE LETTER FROM"
+                            className="w-full bg-[#2a050d] text-white border border-[#5d1726] focus:border-[#caa48a] rounded-lg px-3 py-2 text-xs outline-none uppercase font-cinzel"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <div>
+                          <label className="block text-[11px] font-sans text-[#caa298] mb-1">
+                            Card Subheading / Pre-title
+                          </label>
+                          <input
+                            type="text"
+                            value={weddingForm.subHeading || ''}
+                            onChange={(e) => handleUpdateWeddingField('subHeading', e.target.value)}
+                            placeholder="e.g. The moment has arrived..."
+                            className="w-full bg-[#2a050d] text-white border border-[#5d1726] focus:border-[#caa48a] rounded-lg px-3 py-2 text-xs outline-none font-serif italic"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-sans text-[#caa298] mb-1">
+                            Tagline / Footnote
+                          </label>
+                          <input
+                            type="text"
+                            value={weddingForm.tagline}
+                            onChange={(e) => handleUpdateWeddingField('tagline', e.target.value)}
+                            placeholder="e.g. Formal invitation to follow"
+                            className="w-full bg-[#2a050d] text-white border border-[#5d1726] focus:border-[#caa48a] rounded-lg px-3 py-2 text-xs outline-none font-script text-sm"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 2. Couple Photograph & Pictures */}
+                    <div className="bg-[#1e0308] p-4 rounded-xl border border-[#4d1622] space-y-3">
+                      <div className="flex items-center gap-2 border-b border-[#3d0b15] pb-2">
+                        <Image className="w-4 h-4 text-[#caa48a]" />
+                        <span className="font-cinzel text-xs text-white uppercase font-semibold">
+                          Couple Photograph &amp; Picture
+                        </span>
+                      </div>
+
+                      {/* Photo preview + upload action */}
+                      <div className="flex items-start gap-3.5">
+                        <div className="w-20 h-24 rounded-t-full overflow-hidden border border-[#d9c4b2] shadow-md bg-[#2d0710] shrink-0 relative group">
+                          <img
+                            src={weddingForm.couplePhotoUrl || 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=800&q=80'}
+                            alt="Couple Preview"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+
+                        <div className="flex-1 space-y-2">
+                          <label className="block text-[11px] font-sans text-[#caa298]">
+                            Photo Image URL
+                          </label>
+                          <input
+                            type="url"
+                            value={weddingForm.couplePhotoUrl || ''}
+                            onChange={(e) => handleUpdateWeddingField('couplePhotoUrl', e.target.value)}
+                            placeholder="https://... photo url"
+                            className="w-full bg-[#2a050d] text-white border border-[#5d1726] focus:border-[#caa48a] rounded-lg px-3 py-1.5 text-xs outline-none font-mono text-[11px]"
+                          />
+
+                          {/* Upload local image file */}
+                          <div className="flex items-center gap-2 pt-0.5">
+                            <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#3a0a14] hover:bg-[#4d111d] text-[#faede5] border border-[#6b1e2e] text-xs font-sans cursor-pointer transition-colors">
+                              <Upload className="w-3.5 h-3.5 text-[#caa48a]" />
+                              <span>Upload from Device</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={handlePhotoUpload}
+                                className="hidden"
+                              />
+                            </label>
+                            <span className="text-[10px] text-[#caa298] italic">JPG, PNG, WebP</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 1-Click Photo Presets */}
+                      <div>
+                        <span className="text-[10px] font-sans uppercase tracking-wider text-[#caa298] block mb-1.5">
+                          Or select a romantic photo preset:
+                        </span>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                          {PHOTO_PRESETS.map((p, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => handleUpdateWeddingField('couplePhotoUrl', p.url)}
+                              className={`p-1.5 rounded-lg border text-left flex flex-col items-center gap-1 transition-all cursor-pointer ${
+                                weddingForm.couplePhotoUrl === p.url
+                                  ? 'bg-[#3d0b16] border-[#caa48a] text-white'
+                                  : 'bg-[#180206] border-[#44121d] text-[#caa298] hover:border-[#742334]'
+                              }`}
+                            >
+                              <div className="w-full h-12 rounded overflow-hidden">
+                                <img src={p.url} alt={p.title} className="w-full h-full object-cover" />
+                              </div>
+                              <span className="text-[10px] font-sans truncate w-full text-center">
+                                {p.title}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* RIGHT COLUMN: Dates, Venue & Timeline */}
+                  <div className="space-y-4">
+                    {/* 3. Dates, Calendar & Times */}
+                    <div className="bg-[#1e0308] p-4 rounded-xl border border-[#4d1622] space-y-3">
+                      <div className="flex items-center gap-2 border-b border-[#3d0b15] pb-2">
+                        <Calendar className="w-4 h-4 text-[#caa48a]" />
+                        <span className="font-cinzel text-xs text-white uppercase font-semibold">
+                          Date, Time &amp; Calendar
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <div>
+                          <label className="block text-[11px] font-sans text-[#caa298] mb-1">
+                            Wedding Date (Auto-calculates)
+                          </label>
+                          <input
+                            type="date"
+                            value={weddingForm.weddingDate}
+                            onChange={(e) => handleDateChange(e.target.value)}
+                            className="w-full bg-[#2a050d] text-white border border-[#5d1726] focus:border-[#caa48a] rounded-lg px-3 py-2 text-xs outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-sans text-[#caa298] mb-1">
+                            Ceremony Time
+                          </label>
+                          <input
+                            type="text"
+                            value={weddingForm.ceremonyTime || ''}
+                            onChange={(e) => handleUpdateWeddingField('ceremonyTime', e.target.value)}
+                            placeholder="e.g. Ceremony begins promptly at 4:00 PM"
+                            className="w-full bg-[#2a050d] text-white border border-[#5d1726] focus:border-[#caa48a] rounded-lg px-3 py-2 text-xs outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <div>
+                          <label className="block text-[11px] font-sans text-[#caa298] mb-1">
+                            Formatted Date Text
+                          </label>
+                          <input
+                            type="text"
+                            value={weddingForm.dateFormatted}
+                            onChange={(e) => handleUpdateWeddingField('dateFormatted', e.target.value)}
+                            placeholder="e.g. Saturday, 17 July 2027"
+                            className="w-full bg-[#2a050d] text-white border border-[#5d1726] focus:border-[#caa48a] rounded-lg px-3 py-2 text-xs outline-none font-serif italic"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-sans text-[#caa298] mb-1">
+                            Month &amp; Year (Calendar Title)
+                          </label>
+                          <input
+                            type="text"
+                            value={weddingForm.monthYear}
+                            onChange={(e) => handleUpdateWeddingField('monthYear', e.target.value)}
+                            placeholder="e.g. JULY 2027"
+                            className="w-full bg-[#2a050d] text-white border border-[#5d1726] focus:border-[#caa48a] rounded-lg px-3 py-2 text-xs outline-none font-cinzel uppercase"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <div>
+                          <label className="block text-[11px] font-sans text-[#caa298] mb-1">
+                            Calendar Day Highlight (Heart icon)
+                          </label>
+                          <input
+                            type="number"
+                            min={1}
+                            max={31}
+                            value={weddingForm.dayNumber}
+                            onChange={(e) => handleUpdateWeddingField('dayNumber', parseInt(e.target.value, 10) || 1)}
+                            className="w-full bg-[#2a050d] text-white border border-[#5d1726] focus:border-[#caa48a] rounded-lg px-3 py-2 text-xs outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-sans text-[#caa298] mb-1">
+                            RSVP Deadline
+                          </label>
+                          <input
+                            type="text"
+                            value={weddingForm.rsvpDeadline}
+                            onChange={(e) => handleUpdateWeddingField('rsvpDeadline', e.target.value)}
+                            placeholder="e.g. January 2027"
+                            className="w-full bg-[#2a050d] text-white border border-[#5d1726] focus:border-[#caa48a] rounded-lg px-3 py-2 text-xs outline-none"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 4. Venue & Location */}
+                    <div className="bg-[#1e0308] p-4 rounded-xl border border-[#4d1622] space-y-3">
+                      <div className="flex items-center gap-2 border-b border-[#3d0b15] pb-2">
+                        <MapPin className="w-4 h-4 text-[#caa48a]" />
+                        <span className="font-cinzel text-xs text-white uppercase font-semibold">
+                          Venue &amp; Contact Info
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <div>
+                          <label className="block text-[11px] font-sans text-[#caa298] mb-1">
+                            City / Location Name
+                          </label>
+                          <input
+                            type="text"
+                            value={weddingForm.locationCity}
+                            onChange={(e) => handleUpdateWeddingField('locationCity', e.target.value)}
+                            placeholder="e.g. New York City"
+                            className="w-full bg-[#2a050d] text-white border border-[#5d1726] focus:border-[#caa48a] rounded-lg px-3 py-2 text-xs outline-none font-serif"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[11px] font-sans text-[#caa298] mb-1">
+                            Contact Email Address
+                          </label>
+                          <input
+                            type="email"
+                            value={weddingForm.contactEmail}
+                            onChange={(e) => handleUpdateWeddingField('contactEmail', e.target.value)}
+                            placeholder="e.g. wedding@emmaandre.com"
+                            className="w-full bg-[#2a050d] text-white border border-[#5d1726] focus:border-[#caa48a] rounded-lg px-3 py-2 text-xs outline-none font-mono"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-sans text-[#caa298] mb-1">
+                          Venue Name
+                        </label>
+                        <input
+                          type="text"
+                          value={weddingForm.venueName}
+                          onChange={(e) => handleUpdateWeddingField('venueName', e.target.value)}
+                          placeholder="e.g. The Plaza & Central Park Conservatory"
+                          className="w-full bg-[#2a050d] text-white border border-[#5d1726] focus:border-[#caa48a] rounded-lg px-3 py-2 text-xs outline-none font-serif font-semibold"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-sans text-[#caa298] mb-1">
+                          Full Venue Address
+                        </label>
+                        <input
+                          type="text"
+                          value={weddingForm.venueAddress}
+                          onChange={(e) => handleUpdateWeddingField('venueAddress', e.target.value)}
+                          placeholder="e.g. 768 5th Ave, New York, NY 10019"
+                          className="w-full bg-[#2a050d] text-white border border-[#5d1726] focus:border-[#caa48a] rounded-lg px-3 py-2 text-xs outline-none"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 5. Schedule of the Day / Timeline Editor */}
+                <div className="bg-[#1e0308] p-4 rounded-xl border border-[#4d1622] space-y-3">
+                  <div className="flex items-center justify-between border-b border-[#3d0b15] pb-2">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-[#caa48a]" />
+                      <span className="font-cinzel text-xs text-white uppercase font-semibold">
+                        Schedule of the Day Timeline (Screenshot 6)
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleAddScheduleItem}
+                      className="px-2.5 py-1 rounded bg-[#350912] hover:bg-[#4d111d] border border-[#6b1e2e] text-[#faede5] text-xs font-sans flex items-center gap-1 transition-colors cursor-pointer"
+                    >
+                      <Plus className="w-3 h-3 text-[#caa48a]" />
+                      <span>Add Event</span>
+                    </button>
+                  </div>
+
+                  <div className="space-y-2.5">
+                    {(weddingForm.schedule || []).map((item, idx) => (
+                      <div
+                        key={idx}
+                        className="bg-[#24050c] p-3 rounded-lg border border-[#4a121e] grid grid-cols-1 sm:grid-cols-12 gap-2 items-center"
+                      >
+                        <div className="sm:col-span-3">
+                          <label className="block text-[10px] font-sans text-[#caa298] mb-0.5">
+                            Time
+                          </label>
+                          <input
+                            type="text"
+                            value={item.time}
+                            onChange={(e) => handleScheduleItemChange(idx, 'time', e.target.value)}
+                            placeholder="e.g. 4:00 PM"
+                            className="w-full bg-[#180206] text-white border border-[#4d1622] rounded px-2.5 py-1.5 text-xs outline-none font-sans font-medium"
+                          />
+                        </div>
+
+                        <div className="sm:col-span-4">
+                          <label className="block text-[10px] font-sans text-[#caa298] mb-0.5">
+                            Event Title
+                          </label>
+                          <input
+                            type="text"
+                            value={item.title}
+                            onChange={(e) => handleScheduleItemChange(idx, 'title', e.target.value)}
+                            placeholder="e.g. The Wedding Ceremony"
+                            className="w-full bg-[#180206] text-white border border-[#4d1622] rounded px-2.5 py-1.5 text-xs outline-none font-serif font-semibold"
+                          />
+                        </div>
+
+                        <div className="sm:col-span-4">
+                          <label className="block text-[10px] font-sans text-[#caa298] mb-0.5">
+                            Event Description
+                          </label>
+                          <input
+                            type="text"
+                            value={item.description}
+                            onChange={(e) => handleScheduleItemChange(idx, 'description', e.target.value)}
+                            placeholder="e.g. Grand Ballroom &middot; Exchange of vows"
+                            className="w-full bg-[#180206] text-white border border-[#4d1622] rounded px-2.5 py-1.5 text-xs outline-none text-xs"
+                          />
+                        </div>
+
+                        <div className="sm:col-span-1 flex justify-end pt-3 sm:pt-0">
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveScheduleItem(idx)}
+                            title="Remove event"
+                            className="p-1.5 rounded text-[#9c5a66] hover:text-rose-300 hover:bg-[#3d0b16] transition-colors cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Bottom Save Action Bar */}
+                <div className="p-3 bg-[#180206] rounded-xl border border-[#4a121e] flex items-center justify-between flex-wrap gap-2">
+                  <span className="text-[11px] text-[#caa298] font-sans flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    Updates reflect across all 7 invitation screens (Envelope, Arch, Calendar, Countdown, Schedule, Contact &amp; RSVP).
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleSaveAllWeddingDetails()}
+                    className="px-5 py-2 rounded-xl bg-white hover:bg-[#fbf0ea] text-[#460e19] font-cinzel text-xs font-bold tracking-wider uppercase transition-transform active:scale-95 shadow-lg cursor-pointer"
+                  >
+                    Save All Changes
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* TAB 1: GUEST REGISTRY & NAMES EDITOR */}
             {activeTab === 'registry' && (
