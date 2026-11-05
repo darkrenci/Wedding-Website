@@ -98,6 +98,9 @@ class WeddingAudioPlayer {
     this.audioElement.loop = true;
     this.audioElement.volume = this.volume;
     this.audioElement.preload = 'auto';
+    (this.audioElement as any).playsInline = true;
+    (this.audioElement as any).setAttribute?.('playsinline', 'true');
+    (this.audioElement as any).setAttribute?.('webkit-playsinline', 'true');
 
     // Fallback gracefully to synthesized harp if streaming audio errors out
     this.audioElement.addEventListener('error', (e) => {
@@ -323,6 +326,14 @@ class WeddingAudioPlayer {
     this.isPlaying = true;
     this.initAudioElement();
 
+    // Resume AudioContext if suspended (standard requirement on mobile Safari & Chrome)
+    try {
+      const ctx = this.getAudioContext();
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(() => {});
+      }
+    } catch {}
+
     // If custom/preset is configured and not built-in, play the HTML5 audio element
     if (!this.isBuiltInOnly && this.audioElement) {
       if (this.audioElement.src) {
@@ -341,10 +352,15 @@ class WeddingAudioPlayer {
           console.warn('Audio element error, fallback to synth:', err);
         }
       } else if (this.loadingCustomPromise) {
-        // Still loading custom file from IndexedDB, wait for it then start
+        // Prime audio element directly within user touch event context
+        try {
+          this.audioElement.play().catch(() => {});
+        } catch {}
+
         this.loadingCustomPromise.then((url) => {
           if (this.isPlaying && url && this.audioElement) {
             this.stopSynthesizedMusic();
+            this.audioElement.src = url;
             this.audioElement.volume = this.volume;
             this.audioElement.play().catch(() => this.startSynthesizedMusic());
           }

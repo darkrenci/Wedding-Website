@@ -93,17 +93,38 @@ export async function fetchWeddingDetailsFromSupabase(): Promise<WeddingDetails 
   }
 }
 
-interface AudioMeta {
+const AUDIO_DATA_KEY = '__wedding_audio_data__';
+
+interface AudioRecordMeta {
   name: string;
   type: string;
-  totalChunks: number;
-  totalChars: number;
+  size: number;
   updatedAt: number;
 }
 
 /**
- * Uploads a local custom audio track (MP3/WAV/etc.) to Supabase in robust chunks
- * so other devices and guest phones can stream and play the exact same track.
+ * Mobile-safe base64 to Blob decoder that avoids WebKit URL-length crashes.
+ * Works seamlessly on iOS Safari, Android Chrome, and desktop browsers.
+ */
+function base64ToBlob(base64Data: string, contentType: string = 'audio/mp3'): Blob {
+  const clean = base64Data.includes(',') ? base64Data.split(',')[1] : base64Data;
+  const byteCharacters = atob(clean);
+  const byteArrays: Uint8Array[] = [];
+  const sliceSize = 512 * 1024;
+  for (let offset = 0; offset < byteCharacters.length; offset += sliceSize) {
+    const slice = byteCharacters.slice(offset, offset + sliceSize);
+    const byteNumbers = new Array(slice.length);
+    for (let i = 0; i < slice.length; i++) {
+      byteNumbers[i] = slice.charCodeAt(i);
+    }
+    byteArrays.push(new Uint8Array(byteNumbers));
+  }
+  return new Blob(byteArrays as BlobPart[], { type: contentType });
+}
+
+/**
+ * Uploads a local custom audio track (MP3/WAV/etc.) to Supabase in a single atomic record
+ * so all phones, tablets, and computers can stream and play the exact same track.
  */
 export async function uploadCustomAudioToSupabase(
   file: File | Blob,
@@ -116,70 +137,55 @@ export async function uploadCustomAudioToSupabase(
   }
 
   try {
-    if (onProgress) onProgress(5);
-
-    // Convert file to base64
-    const base64Data = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const res = reader.result as string;
-        // strip data:audio/...;base64, prefix if desired, or keep raw
-        resolve(res);
-      };
-      reader.onerror = () => reject(reader.error);
-      reader.readAsDataURL(file);
-    });
-
     if (onProgress) onProgress(15);
 
-    const totalChars = base64Data.length;
-    const totalChunks = Math.ceil(totalChars / CHUNK_SIZE);
-    const updatedAt = Date.now();
-
-    const meta: AudioMeta = {
-      name: name || 'Custom Wedding Audio',
-      type: file.type || 'audio/mp3',
-      totalChunks,
-      totalChars,
-      updatedAt,
-    };
-
-    // 1. Upload all chunks in small batches
-    for (let i = 0; i < totalChunks; i++) {
-      const chunkStr = base64Data.slice(i * CHUNK_SIZE, (i + 1) * CHUNK_SIZE);
-      const chunkName = `${AUDIO_CHUNK_PREFIX}${i}__`;
-
-      const { error: chunkErr } = await client.from('guests').upsert(
-        {
-          name: chunkName,
-          allocated_invitations: 1,
-          rsvp_status: 'system',
-          wishes: chunkStr,
-        },
-        { onConflict: 'name' }
-      );
-
-      if (chunkErr) {
-        throw new Error(`Failed to upload audio chunk ${i + 1}/${totalChunks}: ${chunkErr.message}`);
+    // Convert file/blob to base64 cleanly
+    let base64Data = '';
+    if (typeof (file as any).arrayBuffer === 'function') {
+      const arrayBuf = await file.arrayBuffer();
+      const bytes = new Uint8Array(arrayBuf);
+      let binary = '';
+      const len = bytes.byteLength;
+      const chunkSize = 8192;
+      for (let i = 0; i < len; i += chunkSize) {
+        binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunkSize)));
       }
-
-      const progress = 15 + Math.round(((i + 1) / totalChunks) * 80);
-      if (onProgress) onProgress(progress);
+      base64Data = `data:${file.type || 'audio/mp3'};base64,` + btoa(binary);
+    } else if (typeof FileReader !== 'undefined') {
+      base64Data = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(reader.error);
+        reader.readAsDataURL(file);
+      });
     }
 
-    // 2. Upload metadata pointing to the new chunks
-    const { error: metaErr } = await client.from('guests').upsert(
-      {
-        name: AUDIO_META_KEY,
-        allocated_invitations: 1,
-        rsvp_status: 'system',
-        wishes: JSON.stringify(meta),
-      },
-      { onConflict: 'name' }
-    );
+    if (onProgress) onProgress(45);
 
-    if (metaErr) {
-      throw new Error(`Failed to record audio metadata: ${metaErr.message}`);
+    const meta: AudioRecordMeta = {
+      name: name || 'Custom Wedding Audio',
+      type: file.type || 'audio/mp3',
+      size: file.size,
+      updatedAt: Date.now(),
+    };
+
+    // Upsert atomic audio record into Supabase
+    const payload = {
+      name: AUDIO_DATA_KEY,
+      allocated_invitations: 1,
+      rsvp_status: 'system',
+      dietary: JSON.stringify(meta),
+      wishes: base64Data,
+    };
+
+    if (onProgress) onProgress(75);
+
+    const { error: upsertErr } = await client
+      .from('guests')
+      .upsert(payload, { onConflict: 'name' });
+
+    if (upsertErr) {
+      throw new Error(`Supabase audio upload failed: ${upsertErr.message}`);
     }
 
     if (onProgress) onProgress(100);
@@ -192,7 +198,7 @@ export async function uploadCustomAudioToSupabase(
 
 /**
  * Downloads the custom wedding audio file from Supabase cloud
- * and returns a playable Object URL for playback on this device.
+ * and returns a playable Object URL for instant playback on any mobile or desktop device.
  */
 export async function fetchCustomAudioFromSupabase(): Promise<{
   blob: Blob;
@@ -204,49 +210,30 @@ export async function fetchCustomAudioFromSupabase(): Promise<{
   if (!client) return null;
 
   try {
-    // 1. Fetch audio metadata
-    const { data: metaRow, error: metaErr } = await client
+    const { data, error } = await client
       .from('guests')
-      .select('wishes')
-      .eq('name', AUDIO_META_KEY)
+      .select('wishes, dietary')
+      .eq('name', AUDIO_DATA_KEY)
       .maybeSingle();
 
-    if (metaErr || !metaRow || !metaRow.wishes) {
+    if (error || !data || !data.wishes) {
       return null;
     }
 
-    const meta: AudioMeta = JSON.parse(metaRow.wishes);
-    if (!meta.totalChunks || meta.totalChunks <= 0) {
-      return null;
+    let meta: AudioRecordMeta = {
+      name: 'Custom Wedding Song',
+      type: 'audio/mp3',
+      size: data.wishes.length,
+      updatedAt: Date.now(),
+    };
+
+    if (data.dietary) {
+      try {
+        meta = { ...meta, ...JSON.parse(data.dietary) };
+      } catch {}
     }
 
-    // 2. Fetch all chunks
-    const chunkNames = Array.from({ length: meta.totalChunks }, (_, i) => `${AUDIO_CHUNK_PREFIX}${i}__`);
-
-    const { data: chunksRows, error: chunksErr } = await client
-      .from('guests')
-      .select('name, wishes')
-      .in('name', chunkNames);
-
-    if (chunksErr || !chunksRows || chunksRows.length < meta.totalChunks) {
-      console.warn('Incomplete audio chunks retrieved from Supabase');
-      return null;
-    }
-
-    // Sort chunks strictly in index order
-    const chunkMap = new Map<string, string>();
-    chunksRows.forEach((r) => chunkMap.set(r.name, r.wishes || ''));
-
-    let fullBase64 = '';
-    for (let i = 0; i < meta.totalChunks; i++) {
-      const c = chunkMap.get(`${AUDIO_CHUNK_PREFIX}${i}__`);
-      if (c === undefined) return null;
-      fullBase64 += c;
-    }
-
-    // Convert data URL to Blob
-    const response = await fetch(fullBase64);
-    const blob = await response.blob();
+    const blob = base64ToBlob(data.wishes, meta.type || 'audio/mp3');
     const url = URL.createObjectURL(blob);
 
     return {
