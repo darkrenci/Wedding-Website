@@ -39,6 +39,7 @@ const DEFAULT_WEDDING: WeddingDetails = {
   musicTitle: 'Dreamy Harp & Celesta (Built-in)',
   musicType: 'builtin',
   musicVolume: 0.7,
+  scheduleTitle: 'Schedule of the Day',
   schedule: [
     {
       time: '4:00 PM',

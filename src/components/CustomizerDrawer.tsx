@@ -177,6 +177,20 @@ export const CustomizerDrawer: React.FC<CustomizerDrawerProps> = ({
               />
             </div>
 
+            {/* Schedule Section Title */}
+            <div>
+              <label className="block text-[11px] font-cinzel tracking-wider text-[#eccdc0] uppercase mb-1">
+                Schedule Card Title
+              </label>
+              <input
+                type="text"
+                value={wedding.scheduleTitle || 'Schedule of the Day'}
+                onChange={(e) => onChange({ ...wedding, scheduleTitle: e.target.value })}
+                placeholder="e.g. Schedule of the Day, Order of Events..."
+                className="w-full bg-[#1e0409] border border-[#6b1f2e] rounded px-3 py-1.5 text-xs text-white outline-none font-serif"
+              />
+            </div>
+
             {/* Image 1: Envelope Opening Sneak Peek Photo (Arch Card) */}
             <div className="bg-[#340912] p-3 rounded-lg border border-[#611b29] space-y-2">
               <label className="block text-[11px] font-cinzel tracking-wider text-[#eccdc0] uppercase">

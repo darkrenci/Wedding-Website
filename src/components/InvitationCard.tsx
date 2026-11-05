@@ -209,7 +209,7 @@ export const InvitationCard: React.FC<InvitationCardProps> = ({
           {/* Section 7: Schedule of Events Accordion / Timeline */}
           <section id="schedule" className="bg-[#f5ece3] rounded-2xl p-6 sm:p-8 border border-[#dfcebf] my-8 scroll-mt-24">
             <h4 className="font-cinzel text-center text-xs sm:text-sm tracking-[0.25em] text-[#581c27] uppercase font-semibold mb-6">
-              Schedule of the Day
+              {wedding.scheduleTitle || 'Schedule of the Day'}
             </h4>
             <div className="space-y-4 font-serif">
               {(wedding.schedule && wedding.schedule.length > 0

@@ -30,6 +30,7 @@ export interface WeddingDetails {
   musicTitle?: string; // e.g. "Dreamy Harp Arpeggios (Romantic)"
   musicType?: 'builtin' | 'custom' | 'preset';
   musicVolume?: number; // 0.1 to 1.0
+  scheduleTitle?: string; // Customizable title header (e.g. "Schedule of the Day", "Wedding Timeline", "Order of Events")
   schedule?: ScheduleItem[];
 }
 

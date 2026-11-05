@@ -137,6 +137,7 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({
       envelopeBg: '#380913',
       envelopePhotoUrl: 'https://images.unsplash.com/photo-1606800052052-a08af7148866?auto=format&fit=crop&w=800&q=80',
       couplePhotoUrl: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=800&q=80',
+      scheduleTitle: 'Schedule of the Day',
       schedule: [
         { time: '4:00 PM', title: 'The Wedding Ceremony', description: 'Grand Ballroom · Exchange of vows & unity celebration' },
         { time: '5:30 PM', title: 'Cocktail Hour & Canapés', description: 'Terrace · Signature drinks, champagne & live string quartet' },
@@ -1069,7 +1070,9 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({
                 }`}
               >
                 <Clock className="w-3.5 h-3.5 text-[#caa48a]" />
-                <span>Schedule of the Day</span>
+                <span className="truncate max-w-[160px]">
+                  {weddingForm.scheduleTitle || 'Schedule of the Day'}
+                </span>
                 <span className="bg-[#3e0b16] text-[#faede5] text-[10px] px-1.5 py-0.2 rounded-full font-mono">
                   {(weddingForm.schedule || []).length}
                 </span>
@@ -1625,14 +1628,37 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({
                         Schedule of the Day Timeline (Screenshot 6)
                       </span>
                     </div>
-                    <button
-                      type="button"
-                      onClick={handleAddScheduleItem}
-                      className="px-2.5 py-1 rounded bg-[#350912] hover:bg-[#4d111d] border border-[#6b1e2e] text-[#faede5] text-xs font-sans flex items-center gap-1 transition-colors cursor-pointer"
-                    >
-                      <Plus className="w-3 h-3 text-[#caa48a]" />
-                      <span>Add Event</span>
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('schedule')}
+                        className="text-[11px] text-[#caa48a] hover:underline font-sans"
+                      >
+                        Open Full Schedule Studio &rarr;
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleAddScheduleItem}
+                        className="px-2.5 py-1 rounded bg-[#350912] hover:bg-[#4d111d] border border-[#6b1e2e] text-[#faede5] text-xs font-sans flex items-center gap-1 transition-colors cursor-pointer"
+                      >
+                        <Plus className="w-3 h-3 text-[#caa48a]" />
+                        <span>Add Event</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Section Title Input */}
+                  <div className="bg-[#180206] p-2.5 rounded-lg border border-[#44121d] flex items-center gap-2">
+                    <span className="text-[11px] font-cinzel text-[#caa48a] whitespace-nowrap">
+                      Card Title:
+                    </span>
+                    <input
+                      type="text"
+                      value={weddingForm.scheduleTitle || ''}
+                      onChange={(e) => handleUpdateWeddingField('scheduleTitle', e.target.value)}
+                      placeholder="e.g. Schedule of the Day, Order of Events..."
+                      className="flex-1 bg-[#25050c] text-white border border-[#4d1622] rounded px-2.5 py-1 text-xs outline-none font-serif"
+                    />
                   </div>
 
                   <div className="space-y-2.5">
@@ -1736,6 +1762,66 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({
                       <Plus className="w-3.5 h-3.5" />
                       <span>Add Event</span>
                     </button>
+                  </div>
+                </div>
+
+                {/* 1. Schedule Title Header Editor */}
+                <div className="bg-[#1e0308] p-4 rounded-xl border border-[#4d1622] space-y-2.5">
+                  <div className="flex items-center justify-between border-b border-[#3d0b15] pb-2">
+                    <div className="flex items-center gap-2">
+                      <Edit2 className="w-4 h-4 text-[#caa48a]" />
+                      <label className="text-xs font-cinzel text-white uppercase font-semibold">
+                        Custom Schedule Title (Shown on Website Card)
+                      </label>
+                    </div>
+                    <span className="text-[10px] text-[#caa298] font-sans">
+                      Displayed as the main title header on the invitation
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={weddingForm.scheduleTitle || ''}
+                      onChange={(e) => handleUpdateWeddingField('scheduleTitle', e.target.value)}
+                      placeholder="e.g. Schedule of the Day, Wedding Timeline, Order of Events..."
+                      className="flex-1 bg-[#2a050d] text-white border border-[#5d1726] focus:border-[#caa48a] rounded-lg px-3.5 py-2 text-xs sm:text-sm outline-none font-serif tracking-wide"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleUpdateWeddingField('scheduleTitle', 'Schedule of the Day')}
+                      className="px-3 py-2 rounded-lg border border-[#6b1e2e] text-[#caa298] hover:text-white hover:bg-[#3d0b16] text-xs font-sans whitespace-nowrap transition-colors cursor-pointer"
+                      title="Reset to default title"
+                    >
+                      Reset Default
+                    </button>
+                  </div>
+
+                  {/* 1-Click Title Presets */}
+                  <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                    <span className="text-[10px] text-[#865961] font-sans">Presets:</span>
+                    {[
+                      'Schedule of the Day',
+                      'Wedding Timeline',
+                      'Order of Events',
+                      'Day Itinerary',
+                      'Programme',
+                      'Schedule of Events',
+                      'Wedding Itinerary',
+                    ].map((suggestion) => (
+                      <button
+                        key={suggestion}
+                        type="button"
+                        onClick={() => handleUpdateWeddingField('scheduleTitle', suggestion)}
+                        className={`text-[10px] px-2.5 py-0.5 rounded-full border transition-colors cursor-pointer ${
+                          (weddingForm.scheduleTitle || 'Schedule of the Day') === suggestion
+                            ? 'bg-[#caa48a] text-[#2c050c] font-semibold border-[#caa48a]'
+                            : 'bg-[#180206] text-[#caa298] border-[#44121d] hover:border-[#6b1e2e]'
+                        }`}
+                      >
+                        {suggestion}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
