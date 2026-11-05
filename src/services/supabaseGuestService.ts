@@ -34,6 +34,18 @@ create table if not exists public.rsvps (
   submitted_at timestamptz default now()
 );
 
+-- 2b. Optional Dedicated Tables for Settings & Love Notes
+create table if not exists public.wedding_settings (
+  id text primary key default 'primary',
+  data jsonb not null,
+  updated_at timestamptz default now()
+);
+alter table public.wedding_settings enable row level security;
+drop policy if exists "Allow public select settings" on public.wedding_settings;
+create policy "Allow public select settings" on public.wedding_settings for select using (true);
+drop policy if exists "Allow public upsert settings" on public.wedding_settings;
+create policy "Allow public upsert settings" on public.wedding_settings for all using (true) with check (true);
+
 -- 3. Enable Row Level Security (RLS)
 alter table public.guests enable row level security;
 alter table public.rsvps enable row level security;
@@ -116,7 +128,12 @@ export async function fetchGuestsFromSupabase(): Promise<InvitedGuest[] | null> 
 
     if (!Array.isArray(data)) return null;
 
-    return data.map(mapRowToInvitedGuest);
+    const validGuests = data.filter((row: any) => {
+      const name = String(row.name || '');
+      return !name.startsWith('__') && row.rsvp_status !== 'system';
+    });
+
+    return validGuests.map(mapRowToInvitedGuest);
   } catch (err) {
     console.warn('Network error loading guests from Supabase:', err);
     return null;
@@ -220,11 +237,12 @@ export async function deleteAllGuestsFromSupabase(): Promise<boolean> {
   if (!client) return false;
 
   try {
-    // Delete all rows in guests table
+    // Delete only human guests, preserving any system configs
     const { error } = await client
       .from('guests')
       .delete()
-      .neq('id', '___non_existent_id___');
+      .not('name', 'like', '__%')
+      .neq('rsvp_status', 'system');
     return !error;
   } catch {
     return false;

@@ -53,6 +53,20 @@ const notifyLoveNotesUpdated = () => {
   }
 };
 
+import { saveLoveNotesToSupabase, fetchLoveNotesFromSupabase } from '../services/supabaseWeddingService';
+
+export const syncLoveNotesFromSupabase = async (): Promise<LoveNote[]> => {
+  try {
+    const remote = await fetchLoveNotesFromSupabase();
+    if (remote && Array.isArray(remote) && remote.length > 0) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(remote));
+      notifyLoveNotesUpdated();
+      return remote;
+    }
+  } catch {}
+  return getLoveNotes();
+};
+
 export const addLoveNote = (name: string, message: string): LoveNote => {
   const current = getLoveNotes();
   const newNote: LoveNote = {
@@ -70,6 +84,7 @@ export const addLoveNote = (name: string, message: string): LoveNote => {
     console.error('Failed to save love note:', err);
   }
   notifyLoveNotesUpdated();
+  saveLoveNotesToSupabase(updated).catch(() => {});
   return newNote;
 };
 
@@ -83,6 +98,7 @@ export const deleteLoveNote = (id: string): boolean => {
     return false;
   }
   notifyLoveNotesUpdated();
+  saveLoveNotesToSupabase(filtered).catch(() => {});
   return true;
 };
 

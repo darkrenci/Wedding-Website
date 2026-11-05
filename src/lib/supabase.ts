@@ -17,8 +17,8 @@ export const DEFAULT_SUPABASE_ANON_KEY = 'sb_publishable_NOkWGuCQFppWznUZEWybag_
 
 export function getSupabaseConfig(): SupabaseConfig {
   // Check env vars first
-  const envUrl = (import.meta.env.VITE_SUPABASE_URL || '').trim();
-  const envKey = (import.meta.env.VITE_SUPABASE_ANON_KEY || '').trim();
+  const envUrl = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_URL ? import.meta.env.VITE_SUPABASE_URL : '').trim();
+  const envKey = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_SUPABASE_ANON_KEY ? import.meta.env.VITE_SUPABASE_ANON_KEY : '').trim();
 
   if (envUrl && envKey && !envUrl.includes('your-project-ref') && !envUrl.includes('your-project-id')) {
     return {

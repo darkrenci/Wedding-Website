@@ -14,6 +14,8 @@ import {
   Sparkles
 } from 'lucide-react';
 import { syncWithSupabase } from './utils/guestList';
+import { fetchWeddingDetailsFromSupabase, saveWeddingDetailsToSupabase } from './services/supabaseWeddingService';
+import { syncLoveNotesFromSupabase } from './utils/loveNotes';
 
 const DEFAULT_WEDDING: WeddingDetails = {
   brideName: 'Emma',
@@ -110,8 +112,22 @@ export default function App() {
       // ignore
     }
 
-    // Auto-sync guest list with Supabase
+    // Auto-sync guest list, wedding settings, and love notes with Supabase cloud
     syncWithSupabase().catch(() => {});
+    syncLoveNotesFromSupabase().catch(() => {});
+
+    fetchWeddingDetailsFromSupabase()
+      .then((remoteDetails) => {
+        if (remoteDetails) {
+          setWedding(remoteDetails);
+          try {
+            localStorage.setItem('wedding_invitation_config', JSON.stringify(remoteDetails));
+          } catch {}
+        }
+      })
+      .catch((err) => {
+        console.warn('Could not pull wedding details from Supabase:', err);
+      });
 
     // Listen to browser URL changes (/admin route detection)
     const handleRouteCheck = () => {
@@ -145,15 +161,18 @@ export default function App() {
     setWedding(updated);
     try {
       localStorage.setItem('wedding_invitation_config', JSON.stringify(updated));
-    } catch {
-      // ignore
-    }
+    } catch {}
+    // Push instantly to Supabase so phone, laptops, and guests see updates
+    saveWeddingDetailsToSupabase(updated).catch((err) => {
+      console.warn('Could not sync wedding details to Supabase:', err);
+    });
   };
 
   const handleResetDefaults = () => {
     setWedding(DEFAULT_WEDDING);
     localStorage.removeItem('wedding_invitation_config');
     clearCustomAudioFile().catch(() => {});
+    saveWeddingDetailsToSupabase(DEFAULT_WEDDING).catch(() => {});
   };
 
   const handleToggleSound = () => {

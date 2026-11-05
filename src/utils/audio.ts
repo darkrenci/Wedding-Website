@@ -1,5 +1,6 @@
 // Web Audio API & HTML5 Audio Player for Wedding Atmosphere
-import { loadCustomAudioFile } from './audioStorage';
+import { loadCustomAudioFile, saveCustomAudioFile } from './audioStorage';
+import { fetchCustomAudioFromSupabase } from '../services/supabaseWeddingService';
 // Supports:
 // 1. Built-in Romantic Web Audio Celesta / Harp synthesis (zero bandwidth, instant, 100% reliable)
 // 2. Custom MP3/Audio URLs (paste any audio link)
@@ -164,8 +165,13 @@ class WeddingAudioPlayer {
       return;
     }
 
-    // 3. Custom audio stored in IndexedDB (e.g. on page refresh or after file upload)
-    if (config.musicType === 'custom' || this.musicUrl.startsWith('indexeddb://') || this.musicUrl.startsWith('blob:')) {
+    // 3. Custom audio stored in Supabase cloud or IndexedDB (syncs across devices)
+    if (
+      config.musicType === 'custom' ||
+      this.musicUrl.startsWith('indexeddb://') ||
+      this.musicUrl.startsWith('supabase://') ||
+      this.musicUrl.startsWith('blob:')
+    ) {
       // If we already have the active blob url loaded, keep playing it
       if (this.activeBlobUrl && this.audioElement.src === this.activeBlobUrl) {
         if (wasPlaying) {
@@ -175,21 +181,43 @@ class WeddingAudioPlayer {
         return;
       }
 
-      this.loadingCustomPromise = loadCustomAudioFile().then((saved) => {
-        if (saved && saved.url && this.audioElement) {
-          this.activeBlobUrl = saved.url;
-          this.audioElement.src = saved.url;
-          this.audioElement.load();
-          if (this.isPlaying) {
-            this.stopSynthesizedMusic();
-            this.audioElement.play().catch((err) => {
-              console.warn('Could not auto-resume custom audio:', err);
-            });
+      this.loadingCustomPromise = (async () => {
+        // Step A: Check local IndexedDB first (instant on current device)
+        try {
+          const localSaved = await loadCustomAudioFile();
+          if (localSaved && localSaved.url && this.audioElement) {
+            this.activeBlobUrl = localSaved.url;
+            this.audioElement.src = localSaved.url;
+            this.audioElement.load();
+            if (this.isPlaying) {
+              this.stopSynthesizedMusic();
+              this.audioElement.play().catch(() => {});
+            }
+            return localSaved.url;
           }
-          return saved.url;
+        } catch {}
+
+        // Step B: Not in local storage (e.g. phone or another computer), pull from Supabase!
+        try {
+          const remoteAudio = await fetchCustomAudioFromSupabase();
+          if (remoteAudio && remoteAudio.url && this.audioElement) {
+            this.activeBlobUrl = remoteAudio.url;
+            this.audioElement.src = remoteAudio.url;
+            this.audioElement.load();
+            // Cache in IndexedDB for subsequent visits on this device
+            saveCustomAudioFile(remoteAudio.blob, remoteAudio.name).catch(() => {});
+            if (this.isPlaying) {
+              this.stopSynthesizedMusic();
+              this.audioElement.play().catch(() => {});
+            }
+            return remoteAudio.url;
+          }
+        } catch (err) {
+          console.warn('Could not load custom audio from Supabase:', err);
         }
+
         return null;
-      });
+      })();
       return;
     }
 

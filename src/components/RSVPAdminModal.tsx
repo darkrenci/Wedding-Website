@@ -22,6 +22,10 @@ import { SUPABASE_SQL_SCHEMA } from '../services/supabaseGuestService';
 import { weddingAudio, WEDDING_AUDIO_PRESETS, WeddingAudioPreset } from '../utils/audio';
 import { saveCustomAudioFile, clearCustomAudioFile } from '../utils/audioStorage';
 import {
+  saveWeddingDetailsToSupabase,
+  uploadCustomAudioToSupabase,
+} from '../services/supabaseWeddingService';
+import {
   getLoveNotes,
   deleteLoveNote,
   addLoveNote,
@@ -394,7 +398,8 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({
     try {
       localStorage.setItem('wedding_invitation_config', JSON.stringify(updated));
     } catch {}
-    setActionSuccess(`Music set to "${preset.title}"!`);
+    saveWeddingDetailsToSupabase(updated).catch(() => {});
+    setActionSuccess(`Music set to "${preset.title}" & synced with Supabase!`);
     setTimeout(() => setActionSuccess(''), 3000);
   };
 
@@ -417,6 +422,7 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({
     try {
       localStorage.setItem('wedding_invitation_config', JSON.stringify(updated));
     } catch {}
+    saveWeddingDetailsToSupabase(updated).catch(() => {});
   };
 
   const handleAudioFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -428,13 +434,13 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({
     }
 
     try {
-      setActionSuccess('Saving audio file to browser database...');
+      setActionSuccess('Saving audio locally...');
       const cleanTitle = file.name.replace(/\.[^/.]+$/, '');
       const blobUrl = await saveCustomAudioFile(file, cleanTitle);
 
       const updated: WeddingDetails = {
         ...weddingForm,
-        musicUrl: 'indexeddb://current_custom_wedding_audio',
+        musicUrl: 'supabase://wedding_custom_audio',
         musicType: 'custom',
         musicTitle: cleanTitle,
       };
@@ -456,11 +462,22 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({
         console.warn('LocalStorage save warning:', err);
       }
 
-      setActionSuccess(`Saved "${file.name}"! Persisted permanently in your browser.`);
-      setTimeout(() => setActionSuccess(''), 4500);
+      // Upload to Supabase cloud in chunks so all devices & phones get the exact same song!
+      setActionSuccess('Uploading audio to Supabase cloud for phones & devices (5%)...');
+      const uploadRes = await uploadCustomAudioToSupabase(file, cleanTitle, (percent) => {
+        setActionSuccess(`Syncing audio with Supabase cloud (${percent}%)...`);
+      });
+
+      if (uploadRes.success) {
+        await saveWeddingDetailsToSupabase(updated);
+        setActionSuccess(`✓ "${file.name}" saved & synced to Supabase! Phones and other PCs will hear it.`);
+      } else {
+        setActionSuccess(`Saved locally. Supabase note: ${uploadRes.error || 'Check connection'}`);
+      }
+      setTimeout(() => setActionSuccess(''), 5500);
     } catch (err) {
       console.error('Audio upload failed:', err);
-      setActionError('Failed to save audio file to IndexedDB. Please try another audio file.');
+      setActionError('Failed to save audio file. Please try another audio file.');
       setTimeout(() => setActionError(''), 4000);
     }
   };
@@ -473,9 +490,10 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({
     setWeddingForm(updated);
     if (onWeddingUpdate) onWeddingUpdate(updated);
     weddingAudio.setVolume(vol);
+    saveWeddingDetailsToSupabase(updated).catch(() => {});
   };
 
-  const handleSaveAllWeddingDetails = (e?: React.FormEvent) => {
+  const handleSaveAllWeddingDetails = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (onWeddingUpdate) {
       onWeddingUpdate(weddingForm);
@@ -483,8 +501,15 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({
     try {
       localStorage.setItem('wedding_invitation_config', JSON.stringify(weddingForm));
     } catch {}
-    setActionSuccess('Wedding invitation text, dates, venue & pictures saved!');
-    setTimeout(() => setActionSuccess(''), 4000);
+
+    setActionSuccess('Saving & syncing changes with Supabase cloud...');
+    const synced = await saveWeddingDetailsToSupabase(weddingForm);
+    if (synced) {
+      setActionSuccess('✓ Saved & synced with Supabase! All phones and devices will see your updates.');
+    } else {
+      setActionSuccess('Saved locally in browser.');
+    }
+    setTimeout(() => setActionSuccess(''), 4500);
   };
 
   const handleResetWeddingDetails = () => {
@@ -2305,7 +2330,7 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({
                       </p>
                       <input
                         type="url"
-                        value={weddingForm.musicType === 'custom' && !weddingForm.musicUrl?.startsWith('data:') && !weddingForm.musicUrl?.startsWith('indexeddb://') && !weddingForm.musicUrl?.startsWith('blob:') ? weddingForm.musicUrl : ''}
+                        value={weddingForm.musicType === 'custom' && !weddingForm.musicUrl?.startsWith('data:') && !weddingForm.musicUrl?.startsWith('indexeddb://') && !weddingForm.musicUrl?.startsWith('supabase://') && !weddingForm.musicUrl?.startsWith('blob:') ? weddingForm.musicUrl : ''}
                         onChange={(e) => handleCustomMusicUrl(e.target.value)}
                         placeholder="https://example.com/our-wedding-song.mp3"
                         className="w-full bg-[#2a050d] text-white border border-[#5d1726] focus:border-[#caa48a] rounded-lg px-3 py-2 text-xs outline-none font-mono text-[11px]"
@@ -2326,16 +2351,16 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({
                         </span>
                       </div>
                       <p className="text-[11px] text-[#caa298] leading-relaxed">
-                        Upload your personal couple theme song or recording directly from your device (up to 20MB). Saved permanently in browser storage.
+                        Upload your personal couple theme song or recording directly from your device (up to 20MB). Automatically synced to Supabase for all phones &amp; devices.
                       </p>
 
-                      {weddingForm.musicType === 'custom' && (weddingForm.musicUrl?.startsWith('indexeddb://') || weddingForm.musicUrl?.startsWith('blob:')) && (
+                      {weddingForm.musicType === 'custom' && (weddingForm.musicUrl?.startsWith('indexeddb://') || weddingForm.musicUrl?.startsWith('supabase://') || weddingForm.musicUrl?.startsWith('blob:')) && (
                         <div className="flex items-center justify-between p-2 rounded-lg bg-emerald-950/40 border border-emerald-800/60 text-emerald-300 text-xs">
                           <div className="flex items-center gap-1.5 truncate">
                             <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                             <span className="truncate font-sans font-medium">Active: {weddingForm.musicTitle}</span>
                           </div>
-                          <span className="text-[10px] text-emerald-400/80 shrink-0 font-mono">Saved</span>
+                          <span className="text-[10px] text-emerald-400/80 shrink-0 font-mono">Synced</span>
                         </div>
                       )}
 
