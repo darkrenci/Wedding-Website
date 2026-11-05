@@ -4,6 +4,7 @@ import { AnimatedEnvelopeExperience } from './components/AnimatedEnvelopeExperie
 import { CustomizerDrawer } from './components/CustomizerDrawer';
 import { RSVPAdminModal } from './components/RSVPAdminModal';
 import { weddingAudio } from './utils/audio';
+import { clearCustomAudioFile } from './utils/audioStorage';
 import { 
   Volume2, 
   VolumeX, 
@@ -152,6 +153,7 @@ export default function App() {
   const handleResetDefaults = () => {
     setWedding(DEFAULT_WEDDING);
     localStorage.removeItem('wedding_invitation_config');
+    clearCustomAudioFile().catch(() => {});
   };
 
   const handleToggleSound = () => {

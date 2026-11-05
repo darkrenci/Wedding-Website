@@ -1,4 +1,5 @@
 // Web Audio API & HTML5 Audio Player for Wedding Atmosphere
+import { loadCustomAudioFile } from './audioStorage';
 // Supports:
 // 1. Built-in Romantic Web Audio Celesta / Harp synthesis (zero bandwidth, instant, 100% reliable)
 // 2. Custom MP3/Audio URLs (paste any audio link)
@@ -107,34 +108,91 @@ class WeddingAudioPlayer {
     });
   }
 
+  private activeBlobUrl: string | null = null;
+  private loadingCustomPromise: Promise<string | null> | null = null;
+
   public configure(config: {
     musicUrl?: string;
     musicType?: 'builtin' | 'custom' | 'preset';
     musicVolume?: number;
+    customBlobUrl?: string;
   }) {
     if (config.musicVolume !== undefined) {
       this.setVolume(config.musicVolume);
     }
 
     const wasPlaying = this.isPlaying;
-    const isBuiltin = config.musicType === 'builtin' || !config.musicUrl || config.musicUrl.trim() === '';
+    const isBuiltin = config.musicType === 'builtin' || (!config.musicUrl && !config.customBlobUrl);
 
     this.isBuiltInOnly = isBuiltin;
     this.musicUrl = config.musicUrl ? config.musicUrl.trim() : '';
 
     this.initAudioElement();
-    if (this.audioElement) {
-      if (!isBuiltin && this.musicUrl) {
-        if (this.audioElement.src !== this.musicUrl) {
-          this.audioElement.src = this.musicUrl;
-          this.audioElement.load();
-        }
-      } else {
-        this.audioElement.removeAttribute('src');
+    if (!this.audioElement) return;
+
+    if (isBuiltin) {
+      this.audioElement.removeAttribute('src');
+      if (wasPlaying) {
+        this.stopMusic();
+        this.startMusic();
       }
+      return;
     }
 
-    // If currently playing and source changed, restart with new source
+    // 1. Direct Blob URL provided (immediate upload)
+    if (config.customBlobUrl) {
+      this.activeBlobUrl = config.customBlobUrl;
+      this.audioElement.src = config.customBlobUrl;
+      this.audioElement.load();
+      if (wasPlaying) {
+        this.stopMusic();
+        this.startMusic();
+      }
+      return;
+    }
+
+    // 2. Regular HTTP/HTTPS URL
+    if (this.musicUrl.startsWith('http://') || this.musicUrl.startsWith('https://')) {
+      if (this.audioElement.src !== this.musicUrl) {
+        this.audioElement.src = this.musicUrl;
+        this.audioElement.load();
+      }
+      if (wasPlaying) {
+        this.stopMusic();
+        this.startMusic();
+      }
+      return;
+    }
+
+    // 3. Custom audio stored in IndexedDB (e.g. on page refresh or after file upload)
+    if (config.musicType === 'custom' || this.musicUrl.startsWith('indexeddb://') || this.musicUrl.startsWith('blob:')) {
+      // If we already have the active blob url loaded, keep playing it
+      if (this.activeBlobUrl && this.audioElement.src === this.activeBlobUrl) {
+        if (wasPlaying) {
+          this.stopMusic();
+          this.startMusic();
+        }
+        return;
+      }
+
+      this.loadingCustomPromise = loadCustomAudioFile().then((saved) => {
+        if (saved && saved.url && this.audioElement) {
+          this.activeBlobUrl = saved.url;
+          this.audioElement.src = saved.url;
+          this.audioElement.load();
+          if (this.isPlaying) {
+            this.stopSynthesizedMusic();
+            this.audioElement.play().catch((err) => {
+              console.warn('Could not auto-resume custom audio:', err);
+            });
+          }
+          return saved.url;
+        }
+        return null;
+      });
+      return;
+    }
+
     if (wasPlaying) {
       this.stopMusic();
       this.startMusic();
@@ -237,21 +295,33 @@ class WeddingAudioPlayer {
     this.isPlaying = true;
     this.initAudioElement();
 
-    // If custom URL is set and not built-in, play the HTML5 audio element
-    if (!this.isBuiltInOnly && this.musicUrl && this.audioElement) {
-      try {
-        this.stopSynthesizedMusic();
-        this.audioElement.volume = this.volume;
-        const playPromise = this.audioElement.play();
-        if (playPromise !== undefined) {
-          playPromise.catch((err) => {
-            console.warn('Audio play prevented or failed, fallback to synth:', err);
-            this.startSynthesizedMusic();
-          });
+    // If custom/preset is configured and not built-in, play the HTML5 audio element
+    if (!this.isBuiltInOnly && this.audioElement) {
+      if (this.audioElement.src) {
+        try {
+          this.stopSynthesizedMusic();
+          this.audioElement.volume = this.volume;
+          const playPromise = this.audioElement.play();
+          if (playPromise !== undefined) {
+            playPromise.catch((err) => {
+              console.warn('Audio play prevented or failed, fallback to synth:', err);
+              this.startSynthesizedMusic();
+            });
+          }
+          return;
+        } catch (err) {
+          console.warn('Audio element error, fallback to synth:', err);
         }
+      } else if (this.loadingCustomPromise) {
+        // Still loading custom file from IndexedDB, wait for it then start
+        this.loadingCustomPromise.then((url) => {
+          if (this.isPlaying && url && this.audioElement) {
+            this.stopSynthesizedMusic();
+            this.audioElement.volume = this.volume;
+            this.audioElement.play().catch(() => this.startSynthesizedMusic());
+          }
+        });
         return;
-      } catch (err) {
-        console.warn('Audio element error, fallback to synth:', err);
       }
     }
 

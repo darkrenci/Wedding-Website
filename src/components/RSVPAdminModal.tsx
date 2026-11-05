@@ -20,6 +20,7 @@ import {
 } from '../lib/supabase';
 import { SUPABASE_SQL_SCHEMA } from '../services/supabaseGuestService';
 import { weddingAudio, WEDDING_AUDIO_PRESETS, WeddingAudioPreset } from '../utils/audio';
+import { saveCustomAudioFile, clearCustomAudioFile } from '../utils/audioStorage';
 import {
   getLoveNotes,
   deleteLoveNote,
@@ -51,7 +52,6 @@ import {
   Edit2,
   FileText,
   Lock,
-  Unlock,
   ChevronDown,
   ChevronUp,
   Sliders,
@@ -391,6 +391,9 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({
       musicType: updated.musicType,
       musicVolume: updated.musicVolume ?? 0.7,
     });
+    try {
+      localStorage.setItem('wedding_invitation_config', JSON.stringify(updated));
+    } catch {}
     setActionSuccess(`Music set to "${preset.title}"!`);
     setTimeout(() => setActionSuccess(''), 3000);
   };
@@ -402,7 +405,7 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({
       ...weddingForm,
       musicUrl: trimmed,
       musicType: isCustom ? 'custom' : 'builtin',
-      musicTitle: isCustom ? 'Custom Wedding Music Track' : 'Dreamy Harp & Celesta (Built-in)',
+      musicTitle: isCustom ? 'Custom Web Audio Track' : 'Dreamy Harp & Celesta (Built-in)',
     };
     setWeddingForm(updated);
     if (onWeddingUpdate) onWeddingUpdate(updated);
@@ -411,36 +414,55 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({
       musicType: updated.musicType,
       musicVolume: updated.musicVolume ?? 0.7,
     });
+    try {
+      localStorage.setItem('wedding_invitation_config', JSON.stringify(updated));
+    } catch {}
   };
 
-  const handleAudioFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAudioFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 20 * 1024 * 1024) {
       setActionError('Audio file is larger than 20MB. Please choose a smaller MP3 or WAV file.');
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
+
+    try {
+      setActionSuccess('Saving audio file to browser database...');
       const cleanTitle = file.name.replace(/\.[^/.]+$/, '');
+      const blobUrl = await saveCustomAudioFile(file, cleanTitle);
+
       const updated: WeddingDetails = {
         ...weddingForm,
-        musicUrl: dataUrl,
+        musicUrl: 'indexeddb://current_custom_wedding_audio',
         musicType: 'custom',
         musicTitle: cleanTitle,
       };
+
       setWeddingForm(updated);
       if (onWeddingUpdate) onWeddingUpdate(updated);
+
       weddingAudio.configure({
         musicUrl: updated.musicUrl,
         musicType: updated.musicType,
         musicVolume: updated.musicVolume ?? 0.7,
+        customBlobUrl: blobUrl,
       });
-      setActionSuccess(`Uploaded audio track "${file.name}"!`);
-      setTimeout(() => setActionSuccess(''), 3500);
-    };
-    reader.readAsDataURL(file);
+
+      // Save lightweight config (no base64 quota issues)
+      try {
+        localStorage.setItem('wedding_invitation_config', JSON.stringify(updated));
+      } catch (err) {
+        console.warn('LocalStorage save warning:', err);
+      }
+
+      setActionSuccess(`Saved "${file.name}"! Persisted permanently in your browser.`);
+      setTimeout(() => setActionSuccess(''), 4500);
+    } catch (err) {
+      console.error('Audio upload failed:', err);
+      setActionError('Failed to save audio file to IndexedDB. Please try another audio file.');
+      setTimeout(() => setActionError(''), 4000);
+    }
   };
 
   const handleVolumeChange = (vol: number) => {
@@ -555,20 +577,16 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({
 
   const handlePinSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (pinInput.trim() === DEFAULT_ADMIN_PIN || pinInput.trim().toLowerCase() === 'admin') {
+    const storedCustomPin = typeof window !== 'undefined' ? localStorage.getItem('wedding_admin_custom_pin') : null;
+    const validPin = storedCustomPin || DEFAULT_ADMIN_PIN;
+    if (pinInput.trim() === validPin) {
       setIsAuthenticated(true);
       sessionStorage.setItem('wedding_admin_authed', 'true');
       setPinError('');
       setPinInput('');
     } else {
-      setPinError(`Incorrect PIN. (Hint: default is ${DEFAULT_ADMIN_PIN})`);
+      setPinError('Incorrect PIN. Please try again.');
     }
-  };
-
-  const handleQuickUnlock = () => {
-    setIsAuthenticated(true);
-    sessionStorage.setItem('wedding_admin_authed', 'true');
-    setPinError('');
   };
 
   const handleLockAdmin = () => {
@@ -1005,7 +1023,7 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({
                   type="password"
                   value={pinInput}
                   onChange={(e) => setPinInput(e.target.value)}
-                  placeholder="Enter PIN (Default: 1108)"
+                  placeholder="Enter organizer PIN"
                   autoFocus
                   className="w-full bg-[#1b0307] text-white text-center font-mono text-base tracking-widest px-4 py-2.5 rounded-xl border border-[#6b1f2e] focus:border-[#caa48a] outline-none"
                 />
@@ -1024,20 +1042,6 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({
                 Unlock Guest List Admin
               </button>
             </form>
-
-            <div className="pt-2 border-t border-[#460d19] w-full text-center">
-              <button
-                type="button"
-                onClick={handleQuickUnlock}
-                className="text-xs text-[#deb6ab] hover:text-white underline cursor-pointer flex items-center justify-center gap-1.5 mx-auto"
-              >
-                <Unlock className="w-3.5 h-3.5" />
-                <span>Quick Unlock (Organizer Mode)</span>
-              </button>
-              <span className="text-[10px] text-[#865961] block mt-1">
-                Default PIN is <strong>1108</strong>
-              </span>
-            </div>
           </div>
         ) : (
           /* UNLOCKED ADMIN INTERFACE */
@@ -2301,7 +2305,7 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({
                       </p>
                       <input
                         type="url"
-                        value={weddingForm.musicType === 'custom' && !weddingForm.musicUrl?.startsWith('data:') ? weddingForm.musicUrl : ''}
+                        value={weddingForm.musicType === 'custom' && !weddingForm.musicUrl?.startsWith('data:') && !weddingForm.musicUrl?.startsWith('indexeddb://') && !weddingForm.musicUrl?.startsWith('blob:') ? weddingForm.musicUrl : ''}
                         onChange={(e) => handleCustomMusicUrl(e.target.value)}
                         placeholder="https://example.com/our-wedding-song.mp3"
                         className="w-full bg-[#2a050d] text-white border border-[#5d1726] focus:border-[#caa48a] rounded-lg px-3 py-2 text-xs outline-none font-mono text-[11px]"
@@ -2322,8 +2326,19 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({
                         </span>
                       </div>
                       <p className="text-[11px] text-[#caa298] leading-relaxed">
-                        Upload your personal couple theme song or recording directly from your device (up to 20MB).
+                        Upload your personal couple theme song or recording directly from your device (up to 20MB). Saved permanently in browser storage.
                       </p>
+
+                      {weddingForm.musicType === 'custom' && (weddingForm.musicUrl?.startsWith('indexeddb://') || weddingForm.musicUrl?.startsWith('blob:')) && (
+                        <div className="flex items-center justify-between p-2 rounded-lg bg-emerald-950/40 border border-emerald-800/60 text-emerald-300 text-xs">
+                          <div className="flex items-center gap-1.5 truncate">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                            <span className="truncate font-sans font-medium">Active: {weddingForm.musicTitle}</span>
+                          </div>
+                          <span className="text-[10px] text-emerald-400/80 shrink-0 font-mono">Saved</span>
+                        </div>
+                      )}
+
                       <div>
                         <label className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-[#3a0a14] hover:bg-[#4d111d] text-[#faede5] border border-[#6b1e2e] text-xs font-sans font-medium cursor-pointer transition-colors">
                           <Upload className="w-4 h-4 text-[#caa48a]" />

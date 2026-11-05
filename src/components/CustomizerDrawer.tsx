@@ -258,6 +258,11 @@ export const CustomizerDrawer: React.FC<CustomizerDrawerProps> = ({
                 }}
                 className="w-full bg-[#1e0409] border border-[#6b1f2e] rounded px-2.5 py-1.5 text-xs text-white outline-none cursor-pointer"
               >
+                {wedding.musicType === 'custom' && (
+                  <option value={wedding.musicUrl || ''} className="bg-[#1e0409] text-[#caa48a]">
+                    🎵 Custom: {wedding.musicTitle || 'Uploaded Audio Track'}
+                  </option>
+                )}
                 {WEDDING_AUDIO_PRESETS.map((p) => (
                   <option key={p.id} value={p.url || ''} className="bg-[#1e0409] text-white">
                     {p.title}
