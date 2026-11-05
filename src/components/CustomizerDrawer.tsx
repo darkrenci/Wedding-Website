@@ -176,17 +176,38 @@ export const CustomizerDrawer: React.FC<CustomizerDrawerProps> = ({
               />
             </div>
 
-            {/* Contact Email */}
-            <div>
-              <label className="block text-[11px] font-cinzel tracking-wider text-[#eccdc0] uppercase mb-1">
-                Contact Email
+            {/* Image 1: Envelope Opening Sneak Peek Photo (Arch Card) */}
+            <div className="bg-[#340912] p-3 rounded-lg border border-[#611b29] space-y-2">
+              <label className="block text-[11px] font-cinzel tracking-wider text-[#eccdc0] uppercase">
+                Image 1: Envelope Opening Sneak Peek URL
               </label>
               <input
-                type="email"
-                value={wedding.contactEmail}
-                onChange={(e) => onChange({ ...wedding, contactEmail: e.target.value })}
-                className="w-full bg-[#1e0409] border border-[#6b1f2e] rounded px-3 py-1.5 text-xs text-white outline-none"
+                type="url"
+                value={wedding.envelopePhotoUrl || ''}
+                onChange={(e) => onChange({ ...wedding, envelopePhotoUrl: e.target.value })}
+                placeholder="https://... arched photo URL"
+                className="w-full bg-[#1e0409] border border-[#6b1f2e] rounded px-3 py-1.5 text-xs text-white outline-none font-mono text-[11px]"
               />
+              <span className="text-[10px] text-[#caa298] block">
+                Shown inside the sliding arch card when the envelope opens.
+              </span>
+            </div>
+
+            {/* Image 2: Main Stationery Couple Photo (With Swan) */}
+            <div className="bg-[#340912] p-3 rounded-lg border border-[#611b29] space-y-2">
+              <label className="block text-[11px] font-cinzel tracking-wider text-[#eccdc0] uppercase">
+                Image 2: Main Stationery Couple Photo URL
+              </label>
+              <input
+                type="url"
+                value={wedding.couplePhotoUrl || ''}
+                onChange={(e) => onChange({ ...wedding, couplePhotoUrl: e.target.value })}
+                placeholder="https://... couple photo URL"
+                className="w-full bg-[#1e0409] border border-[#6b1f2e] rounded px-3 py-1.5 text-xs text-white outline-none font-mono text-[11px]"
+              />
+              <span className="text-[10px] text-[#caa298] block">
+                Shown on the main opened stationery card next to the swan.
+              </span>
             </div>
           </div>
         </div>

@@ -33,6 +33,7 @@ const DEFAULT_WEDDING: WeddingDetails = {
   contactEmail: 'wedding@emmaandre.com',
   primaryColor: '#480e19',
   envelopeBg: '#380913',
+  envelopePhotoUrl: 'https://images.unsplash.com/photo-1606800052052-a08af7148866?auto=format&fit=crop&w=800&q=80',
   couplePhotoUrl: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=800&q=80',
   schedule: [
     {

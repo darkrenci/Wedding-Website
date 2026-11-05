@@ -112,6 +112,7 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({
       contactEmail: 'wedding@emmaandre.com',
       primaryColor: '#480e19',
       envelopeBg: '#380913',
+      envelopePhotoUrl: 'https://images.unsplash.com/photo-1606800052052-a08af7148866?auto=format&fit=crop&w=800&q=80',
       couplePhotoUrl: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=800&q=80',
       schedule: [
         { time: '4:00 PM', title: 'The Wedding Ceremony', description: 'Grand Ballroom · Exchange of vows & unity celebration' },
@@ -127,13 +128,32 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({
     }
   }, [wedding]);
 
-  const PHOTO_PRESETS = [
+  const ENVELOPE_PHOTO_PRESETS = [
+    {
+      title: 'Golden Rings',
+      url: 'https://images.unsplash.com/photo-1606800052052-a08af7148866?auto=format&fit=crop&w=800&q=80',
+    },
+    {
+      title: 'Bridal Veil',
+      url: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=800&q=80',
+    },
+    {
+      title: 'Floral Arch',
+      url: 'https://images.unsplash.com/photo-1583939003579-730e3918a45a?auto=format&fit=crop&w=800&q=80',
+    },
+    {
+      title: 'Champagne Toast',
+      url: 'https://images.unsplash.com/photo-1511285560929-80b456fea0bc?auto=format&fit=crop&w=800&q=80',
+    },
+  ];
+
+  const COUPLE_PHOTO_PRESETS = [
     {
       title: 'Classic Arch Veil',
       url: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=800&q=80',
     },
     {
-      title: 'Romantic Sunset Kiss',
+      title: 'Sunset Romance',
       url: 'https://images.unsplash.com/photo-1583939003579-730e3918a45a?auto=format&fit=crop&w=800&q=80',
     },
     {
@@ -188,7 +208,24 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({
     handleUpdateWeddingField('weddingDate', newDateStr);
   };
 
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleEnvelopePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 8 * 1024 * 1024) {
+      setActionError('Image file is larger than 8MB. Please choose a smaller image.');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      handleUpdateWeddingField('envelopePhotoUrl', dataUrl);
+      setActionSuccess('Image 1 (Envelope opening sneak peek photo) updated!');
+      setTimeout(() => setActionSuccess(''), 3000);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleCouplePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 8 * 1024 * 1024) {
@@ -199,7 +236,7 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({
     reader.onload = () => {
       const dataUrl = reader.result as string;
       handleUpdateWeddingField('couplePhotoUrl', dataUrl);
-      setActionSuccess('Couple photo uploaded and applied!');
+      setActionSuccess('Image 2 (Main stationery couple photo) updated!');
       setTimeout(() => setActionSuccess(''), 3000);
     };
     reader.readAsDataURL(file);
@@ -1010,28 +1047,123 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({
                       </div>
                     </div>
 
-                    {/* 2. Couple Photograph & Pictures */}
+                    {/* 2A. Image 1: Envelope Opening Sneak Peek Photo (Arch Card) */}
                     <div className="bg-[#1e0308] p-4 rounded-xl border border-[#4d1622] space-y-3">
-                      <div className="flex items-center gap-2 border-b border-[#3d0b15] pb-2">
-                        <Image className="w-4 h-4 text-[#caa48a]" />
-                        <span className="font-cinzel text-xs text-white uppercase font-semibold">
-                          Couple Photograph &amp; Picture
+                      <div className="flex items-center justify-between border-b border-[#3d0b15] pb-2">
+                        <div className="flex items-center gap-2">
+                          <Image className="w-4 h-4 text-[#caa48a]" />
+                          <span className="font-cinzel text-xs text-white uppercase font-semibold">
+                            Image 1: Envelope Opening Sneak Peek (Arch Card)
+                          </span>
+                        </div>
+                        <span className="text-[10px] px-2 py-0.5 rounded bg-[#350a13] text-[#f7eade] border border-[#5a1422] font-sans">
+                          Arched Card
                         </span>
                       </div>
 
+                      <p className="text-[11px] text-[#caa298] leading-relaxed">
+                        This photo slides up from the envelope when unsealed (as shown in your first screenshot).
+                      </p>
+
                       {/* Photo preview + upload action */}
                       <div className="flex items-start gap-3.5">
-                        <div className="w-20 h-24 rounded-t-full overflow-hidden border border-[#d9c4b2] shadow-md bg-[#2d0710] shrink-0 relative group">
+                        <div className="w-20 h-24 rounded-t-full overflow-hidden border-2 border-[#caa48a] shadow-md bg-[#2d0710] shrink-0 relative group">
                           <img
-                            src={weddingForm.couplePhotoUrl || 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=800&q=80'}
-                            alt="Couple Preview"
+                            src={weddingForm.envelopePhotoUrl || 'https://images.unsplash.com/photo-1606800052052-a08af7148866?auto=format&fit=crop&w=800&q=80'}
+                            alt="Envelope Opening Preview"
                             className="w-full h-full object-cover"
                           />
                         </div>
 
                         <div className="flex-1 space-y-2">
                           <label className="block text-[11px] font-sans text-[#caa298]">
-                            Photo Image URL
+                            Image 1 URL (Envelope Sneak Peek)
+                          </label>
+                          <input
+                            type="url"
+                            value={weddingForm.envelopePhotoUrl || ''}
+                            onChange={(e) => handleUpdateWeddingField('envelopePhotoUrl', e.target.value)}
+                            placeholder="https://... photo url"
+                            className="w-full bg-[#2a050d] text-white border border-[#5d1726] focus:border-[#caa48a] rounded-lg px-3 py-1.5 text-xs outline-none font-mono text-[11px]"
+                          />
+
+                          {/* Upload local image file */}
+                          <div className="flex items-center gap-2 pt-0.5">
+                            <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#3a0a14] hover:bg-[#4d111d] text-[#faede5] border border-[#6b1e2e] text-xs font-sans cursor-pointer transition-colors">
+                              <Upload className="w-3.5 h-3.5 text-[#caa48a]" />
+                              <span>Upload Image 1 from Device</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={handleEnvelopePhotoUpload}
+                                className="hidden"
+                              />
+                            </label>
+                            <span className="text-[10px] text-[#caa298] italic">JPG, PNG, WebP</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 1-Click Photo Presets for Image 1 */}
+                      <div>
+                        <span className="text-[10px] font-sans uppercase tracking-wider text-[#caa298] block mb-1.5">
+                          Quick Presets for Image 1 (Arch Sneak Peek):
+                        </span>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                          {ENVELOPE_PHOTO_PRESETS.map((p, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => handleUpdateWeddingField('envelopePhotoUrl', p.url)}
+                              className={`p-1.5 rounded-lg border text-left flex flex-col items-center gap-1 transition-all cursor-pointer ${
+                                weddingForm.envelopePhotoUrl === p.url
+                                  ? 'bg-[#3d0b16] border-[#caa48a] text-white'
+                                  : 'bg-[#180206] border-[#44121d] text-[#caa298] hover:border-[#742334]'
+                              }`}
+                            >
+                              <div className="w-full h-12 rounded-t-lg overflow-hidden">
+                                <img src={p.url} alt={p.title} className="w-full h-full object-cover" />
+                              </div>
+                              <span className="text-[10px] font-sans truncate w-full text-center">
+                                {p.title}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* 2B. Image 2: Main Invitation Couple Photo (Stationery Card with Swan) */}
+                    <div className="bg-[#1e0308] p-4 rounded-xl border border-[#4d1622] space-y-3">
+                      <div className="flex items-center justify-between border-b border-[#3d0b15] pb-2">
+                        <div className="flex items-center gap-2">
+                          <Image className="w-4 h-4 text-[#caa48a]" />
+                          <span className="font-cinzel text-xs text-white uppercase font-semibold">
+                            Image 2: Main Stationery Couple Photo (With Swan)
+                          </span>
+                        </div>
+                        <span className="text-[10px] px-2 py-0.5 rounded bg-[#350a13] text-[#f7eade] border border-[#5a1422] font-sans">
+                          Stationery Card
+                        </span>
+                      </div>
+
+                      <p className="text-[11px] text-[#caa298] leading-relaxed">
+                        This photo is featured on the opened stationery card beside the swan and "SAVE THE DATE" (as shown in your second screenshot).
+                      </p>
+
+                      {/* Photo preview + upload action */}
+                      <div className="flex items-start gap-3.5">
+                        <div className="w-20 h-24 rounded-lg overflow-hidden border-2 border-[#caa48a] shadow-md bg-[#2d0710] shrink-0 relative group">
+                          <img
+                            src={weddingForm.couplePhotoUrl || 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=800&q=80'}
+                            alt="Main Stationery Preview"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+
+                        <div className="flex-1 space-y-2">
+                          <label className="block text-[11px] font-sans text-[#caa298]">
+                            Image 2 URL (Main Couple Stationery)
                           </label>
                           <input
                             type="url"
@@ -1045,11 +1177,11 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({
                           <div className="flex items-center gap-2 pt-0.5">
                             <label className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#3a0a14] hover:bg-[#4d111d] text-[#faede5] border border-[#6b1e2e] text-xs font-sans cursor-pointer transition-colors">
                               <Upload className="w-3.5 h-3.5 text-[#caa48a]" />
-                              <span>Upload from Device</span>
+                              <span>Upload Image 2 from Device</span>
                               <input
                                 type="file"
                                 accept="image/*"
-                                onChange={handlePhotoUpload}
+                                onChange={handleCouplePhotoUpload}
                                 className="hidden"
                               />
                             </label>
@@ -1058,13 +1190,13 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({
                         </div>
                       </div>
 
-                      {/* 1-Click Photo Presets */}
+                      {/* 1-Click Photo Presets for Image 2 */}
                       <div>
                         <span className="text-[10px] font-sans uppercase tracking-wider text-[#caa298] block mb-1.5">
-                          Or select a romantic photo preset:
+                          Quick Presets for Image 2 (Main Stationery):
                         </span>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-                          {PHOTO_PRESETS.map((p, idx) => (
+                          {COUPLE_PHOTO_PRESETS.map((p, idx) => (
                             <button
                               key={idx}
                               type="button"

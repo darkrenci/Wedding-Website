@@ -198,8 +198,8 @@ export const AnimatedEnvelopeExperience: React.FC<AnimatedEnvelopeProps> = ({
             <div className="flex flex-col items-center text-center">
               <div className="w-56 h-64 sm:w-64 sm:h-72 rounded-t-full overflow-hidden border-2 border-[#d9c4b2] shadow-md bg-[#e8ded1] my-2">
                 <img
-                  src={wedding.couplePhotoUrl || "https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=800&q=80"}
-                  alt="Couple"
+                  src={wedding.envelopePhotoUrl || wedding.couplePhotoUrl || "https://images.unsplash.com/photo-1606800052052-a08af7148866?auto=format&fit=crop&w=800&q=80"}
+                  alt="Envelope Opening Preview"
                   className="w-full h-full object-cover filter sepia-[0.25]"
                 />
               </div>

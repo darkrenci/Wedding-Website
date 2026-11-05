@@ -24,7 +24,8 @@ export interface WeddingDetails {
   contactEmail: string; // 'wedding@emmaandre.com'
   primaryColor: string; // burgundy '#4a0e17'
   envelopeBg: string;
-  couplePhotoUrl?: string;
+  envelopePhotoUrl?: string; // Image 1: Envelope opening sneak peek photo (arch card)
+  couplePhotoUrl?: string; // Image 2: Main stationery couple photo (with swan)
   schedule?: ScheduleItem[];
 }
 
