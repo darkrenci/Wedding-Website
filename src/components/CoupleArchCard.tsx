@@ -117,8 +117,8 @@ export const CoupleArchCard: React.FC<CoupleArchCardProps> = ({ wedding }) => {
 
           {/* Couple Names - Adaptive & fully responsive (prevents clipping for long names like RAYNOLD) */}
           {(() => {
-            const brideName = (wedding.brideName || 'Emma').trim();
-            const groomName = (wedding.groomName || 'Andre').trim();
+            const brideName = (wedding.brideName || 'Kath').trim();
+            const groomName = (wedding.groomName || 'Raynold').trim();
             const maxLen = Math.max(brideName.length, groomName.length);
 
             // Dynamic font sizing & letter spacing based on name length

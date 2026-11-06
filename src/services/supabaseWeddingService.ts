@@ -104,7 +104,7 @@ interface AudioRecordMeta {
 
 /**
  * Mobile-safe base64 to Blob decoder that avoids WebKit URL-length crashes.
- * Works seamlessly on iOS Safari, Android Chrome, and desktop browsers.
+ * Automatically normalizes audio/mp3 to audio/mpeg so Apple CoreAudio / iOS Safari decodes flawlessly.
  */
 function base64ToBlob(base64Data: string, contentType: string = 'audio/mpeg'): Blob {
   const clean = base64Data.includes(',') ? base64Data.split(',')[1] : base64Data;
@@ -114,7 +114,8 @@ function base64ToBlob(base64Data: string, contentType: string = 'audio/mpeg'): B
   for (let i = 0; i < len; i++) {
     bytes[i] = binaryString.charCodeAt(i);
   }
-  return new Blob([bytes], { type: contentType || 'audio/mpeg' });
+  const safeType = (!contentType || contentType === 'audio/mp3') ? 'audio/mpeg' : contentType;
+  return new Blob([bytes], { type: safeType });
 }
 
 /**
@@ -136,8 +137,15 @@ export async function uploadCustomAudioToSupabase(
 
     // Convert file/blob to base64 cleanly
     let base64Data = '';
-    if (typeof (file as any).arrayBuffer === 'function') {
-      const arrayBuf = await file.arrayBuffer();
+    if (typeof FileReader !== 'undefined') {
+      base64Data = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(reader.error || new Error('Failed to read audio file'));
+        reader.readAsDataURL(file);
+      });
+    } else if (typeof (file as any).arrayBuffer === 'function') {
+      const arrayBuf = await (file as any).arrayBuffer();
       const bytes = new Uint8Array(arrayBuf);
       let binary = '';
       const len = bytes.byteLength;
@@ -145,21 +153,18 @@ export async function uploadCustomAudioToSupabase(
       for (let i = 0; i < len; i += chunkSize) {
         binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunkSize)));
       }
-      base64Data = `data:${file.type || 'audio/mp3'};base64,` + btoa(binary);
-    } else if (typeof FileReader !== 'undefined') {
-      base64Data = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = () => reject(reader.error);
-        reader.readAsDataURL(file);
-      });
+      const rawType = (file as File).type || 'audio/mpeg';
+      const safeType = rawType === 'audio/mp3' ? 'audio/mpeg' : rawType;
+      base64Data = `data:${safeType};base64,` + btoa(binary);
     }
 
     if (onProgress) onProgress(45);
 
+    const rawType = (file as File).type || '';
+    const safeType = (!rawType || rawType === 'audio/mp3') ? 'audio/mpeg' : rawType;
     const meta: AudioRecordMeta = {
       name: name || 'Custom Wedding Audio',
-      type: file.type || 'audio/mp3',
+      type: safeType,
       size: file.size,
       updatedAt: Date.now(),
     };

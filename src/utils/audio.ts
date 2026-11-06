@@ -92,6 +92,9 @@ class WeddingAudioPlayer {
     }
   }
 
+  private readonly SILENT_AUDIO_UNLOCK =
+    'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
+
   private initAudioElement() {
     if (this.audioElement) return;
     this.audioElement = new Audio();
@@ -102,8 +105,16 @@ class WeddingAudioPlayer {
     (this.audioElement as any).setAttribute?.('playsinline', 'true');
     (this.audioElement as any).setAttribute?.('webkit-playsinline', 'true');
 
-    // Fallback gracefully to synthesized harp if streaming audio errors out
+    // Fallback gracefully to synthesized harp only if a real track was attempted and failed,
+    // and never during silent pre-unlocking or while custom audio is actively downloading from cloud.
     this.audioElement.addEventListener('error', (e) => {
+      const currentSrc = this.audioElement?.src || '';
+      if (!currentSrc || currentSrc.startsWith('data:audio/wav')) {
+        return;
+      }
+      if (this.loadingCustomPromise) {
+        return;
+      }
       console.warn('Custom audio playback error, falling back to Web Audio harp melody:', e);
       if (this.isPlaying) {
         this.stopAudioElement();
@@ -193,6 +204,7 @@ class WeddingAudioPlayer {
             this.activeBlobUrl = localSaved.url;
             this.audioElement.src = localSaved.url;
             this.audioElement.load();
+            this.loadingCustomPromise = null;
             if (this.isPlaying) {
               this.stopSynthesizedMusic();
               this.audioElement.play().catch(() => {});
@@ -210,6 +222,7 @@ class WeddingAudioPlayer {
             this.audioElement.load();
             // Cache in IndexedDB for subsequent visits on this device
             saveCustomAudioFile(remoteAudio.blob, remoteAudio.name).catch(() => {});
+            this.loadingCustomPromise = null;
             if (this.isPlaying) {
               this.stopSynthesizedMusic();
               this.audioElement.play().catch(() => {});
@@ -220,6 +233,7 @@ class WeddingAudioPlayer {
           console.warn('Could not load custom audio from Supabase:', err);
         }
 
+        this.loadingCustomPromise = null;
         return null;
       })();
       return;
@@ -337,7 +351,12 @@ class WeddingAudioPlayer {
 
     // If custom/preset is configured and not built-in, play the HTML5 audio element
     if (!this.isBuiltInOnly && this.audioElement) {
-      if (this.audioElement.src) {
+      const hasValidSrc =
+        this.audioElement.src &&
+        !this.audioElement.src.startsWith('data:audio/wav') &&
+        this.audioElement.src !== window.location.href;
+
+      if (hasValidSrc) {
         try {
           this.stopSynthesizedMusic();
           this.audioElement.volume = this.volume;
@@ -353,8 +372,9 @@ class WeddingAudioPlayer {
           console.warn('Audio element error, fallback to synth:', err);
         }
       } else if (this.loadingCustomPromise) {
-        // Prime audio element directly within user touch event context
+        // Unlock mobile iOS Safari / WebKit audio pipeline during user touch gesture using silent audio
         try {
+          this.audioElement.src = this.SILENT_AUDIO_UNLOCK;
           this.audioElement.play().catch(() => {});
         } catch {}
 
@@ -363,7 +383,12 @@ class WeddingAudioPlayer {
             this.stopSynthesizedMusic();
             this.audioElement.src = url;
             this.audioElement.volume = this.volume;
-            this.audioElement.play().catch(() => this.startSynthesizedMusic());
+            this.audioElement.play().catch((err) => {
+              console.warn('Playback error after unlock:', err);
+              this.startSynthesizedMusic();
+            });
+          } else if (this.isPlaying && !url) {
+            this.startSynthesizedMusic();
           }
         });
         return;

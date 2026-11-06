@@ -20,7 +20,7 @@ import { syncLoveNotesFromSupabase } from './utils/loveNotes';
 const DEFAULT_WEDDING: WeddingDetails = {
   brideName: 'Kath',
   groomName: 'Raynold',
-  coupleInitials: 'EA',
+  coupleInitials: 'KR',
   tagline: 'Formal invitation to follow',
   introHeading: 'A LOVE LETTER FROM',
   subHeading: 'The moment has arrived...',
@@ -38,10 +38,10 @@ const DEFAULT_WEDDING: WeddingDetails = {
   envelopeBg: '#380913',
   envelopePhotoUrl: 'https://images.unsplash.com/photo-1606800052052-a08af7148866?auto=format&fit=crop&w=800&q=80',
   couplePhotoUrl: 'https://images.unsplash.com/photo-1519741497674-611481863552?auto=format&fit=crop&w=800&q=80',
-  musicUrl: '',
-  musicTitle: 'Dreamy Harp & Celesta (Built-in)',
-  musicType: 'builtin',
-  musicVolume: 0.7,
+  musicUrl: 'supabase://wedding_custom_audio',
+  musicTitle: 'Ikaw at ako ( with lyrics) ~ johnoy danao',
+  musicType: 'custom',
+  musicVolume: 0.8,
   scheduleTitle: 'Schedule of the Day',
   schedule: [
     {
@@ -147,6 +147,15 @@ export default function App() {
       window.removeEventListener('hashchange', handleRouteCheck);
     };
   }, []);
+
+  // Sync document title with current couple names dynamically
+  useEffect(() => {
+    const bride = (wedding.brideName || 'Kath').trim();
+    const groom = (wedding.groomName || 'Raynold').trim();
+    if (typeof document !== 'undefined') {
+      document.title = `${bride} & ${groom} Wedding Invitation`;
+    }
+  }, [wedding.brideName, wedding.groomName]);
 
   // Sync audio player configuration with current wedding music settings
   useEffect(() => {

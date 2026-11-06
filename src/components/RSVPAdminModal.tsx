@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { RSVPResponse, InvitedGuest, WeddingDetails, ScheduleItem } from '../types/wedding';
 import {
   getInvitedGuests,
@@ -76,6 +76,7 @@ import {
   Disc,
   Radio,
   MessageSquareHeart,
+  Loader2,
 } from 'lucide-react';
 
 interface RSVPAdminModalProps {
@@ -121,9 +122,9 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({
       if (saved) return JSON.parse(saved);
     } catch {}
     return {
-      brideName: 'Emma',
-      groomName: 'Andre',
-      coupleInitials: 'EA',
+      brideName: 'Kath',
+      groomName: 'Raynold',
+      coupleInitials: 'KR',
       tagline: 'Formal invitation to follow',
       introHeading: 'A LOVE LETTER FROM',
       subHeading: 'The moment has arrived...',
@@ -394,13 +395,19 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({
       musicUrl: updated.musicUrl,
       musicType: updated.musicType,
       musicVolume: updated.musicVolume ?? 0.7,
+      musicTitle: preset.title,
     });
     try {
       localStorage.setItem('wedding_invitation_config', JSON.stringify(updated));
     } catch {}
     saveWeddingDetailsToSupabase(updated).catch(() => {});
-    setActionSuccess(`Music set to "${preset.title}" & synced with Supabase!`);
-    setTimeout(() => setActionSuccess(''), 3000);
+    const msg = `Music set to "${preset.title}" & synced with Supabase!`;
+    setActionSuccess(msg);
+    setMusicStatusMessage({ type: 'success', text: msg });
+    setTimeout(() => {
+      setActionSuccess('');
+      setMusicStatusMessage(null);
+    }, 3500);
   };
 
   const handleCustomMusicUrl = (url: string) => {
@@ -418,6 +425,7 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({
       musicUrl: updated.musicUrl,
       musicType: updated.musicType,
       musicVolume: updated.musicVolume ?? 0.7,
+      musicTitle: updated.musicTitle,
     });
     try {
       localStorage.setItem('wedding_invitation_config', JSON.stringify(updated));
@@ -428,13 +436,23 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({
   const handleAudioFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 20 * 1024 * 1024) {
-      setActionError('Audio file is larger than 20MB. Please choose a smaller MP3 or WAV file.');
+
+    if (file.size > 25 * 1024 * 1024) {
+      const err = 'Audio file is larger than 25MB. Please choose an MP3, M4A, or WAV file under 25MB.';
+      setActionError(err);
+      setMusicStatusMessage({ type: 'error', text: err });
+      if (audioFileInputRef.current) audioFileInputRef.current.value = '';
       return;
     }
 
+    setIsUploadingAudio(true);
+    setAudioUploadProgress(15);
+    setMusicStatusMessage({
+      type: 'loading',
+      text: `Reading "${file.name}" from your device...`,
+    });
+
     try {
-      setActionSuccess('Saving audio locally...');
       const cleanTitle = file.name.replace(/\.[^/.]+$/, '');
       const blobUrl = await saveCustomAudioFile(file, cleanTitle);
 
@@ -452,6 +470,7 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({
         musicUrl: updated.musicUrl,
         musicType: updated.musicType,
         musicVolume: updated.musicVolume ?? 0.7,
+        musicTitle: cleanTitle,
         customBlobUrl: blobUrl,
       });
 
@@ -462,23 +481,40 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({
         console.warn('LocalStorage save warning:', err);
       }
 
-      // Upload to Supabase cloud in chunks so all devices & phones get the exact same song!
-      setActionSuccess('Uploading audio to Supabase cloud for phones & devices (5%)...');
+      setMusicStatusMessage({
+        type: 'loading',
+        text: `Syncing "${cleanTitle}" with Supabase cloud (uploading)...`,
+      });
+
       const uploadRes = await uploadCustomAudioToSupabase(file, cleanTitle, (percent) => {
-        setActionSuccess(`Syncing audio with Supabase cloud (${percent}%)...`);
+        setAudioUploadProgress(percent);
+        setMusicStatusMessage({
+          type: 'loading',
+          text: `Syncing audio with Supabase cloud (${percent}%)...`,
+        });
       });
 
       if (uploadRes.success) {
         await saveWeddingDetailsToSupabase(updated);
-        setActionSuccess(`✓ "${file.name}" saved & synced to Supabase! Phones and other PCs will hear it.`);
+        setAudioUploadProgress(100);
+        const successMsg = `✓ "${cleanTitle}" saved & synced! All phones and devices will now hear this song.`;
+        setMusicStatusMessage({ type: 'success', text: successMsg });
+        setActionSuccess(successMsg);
       } else {
-        setActionSuccess(`Saved locally. Supabase note: ${uploadRes.error || 'Check connection'}`);
+        const warnMsg = `Saved locally on this device. Supabase note: ${uploadRes.error || 'Check connection'}`;
+        setMusicStatusMessage({ type: 'error', text: warnMsg });
+        setActionSuccess(warnMsg);
       }
       setTimeout(() => setActionSuccess(''), 5500);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Audio upload failed:', err);
-      setActionError('Failed to save audio file. Please try another audio file.');
-      setTimeout(() => setActionError(''), 4000);
+      const failMsg = `Failed to process audio file: ${err?.message || 'Please try another MP3.'}`;
+      setActionError(failMsg);
+      setMusicStatusMessage({ type: 'error', text: failMsg });
+      setTimeout(() => setActionError(''), 5000);
+    } finally {
+      setIsUploadingAudio(false);
+      if (audioFileInputRef.current) audioFileInputRef.current.value = '';
     }
   };
 
@@ -502,14 +538,25 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({
       localStorage.setItem('wedding_invitation_config', JSON.stringify(weddingForm));
     } catch {}
 
+    setMusicStatusMessage({
+      type: 'loading',
+      text: 'Saving & syncing changes with Supabase cloud...',
+    });
     setActionSuccess('Saving & syncing changes with Supabase cloud...');
     const synced = await saveWeddingDetailsToSupabase(weddingForm);
     if (synced) {
-      setActionSuccess('✓ Saved & synced with Supabase! All phones and devices will see your updates.');
+      const msg = '✓ Saved & synced with Supabase! All phones and devices will see your updates.';
+      setActionSuccess(msg);
+      setMusicStatusMessage({ type: 'success', text: msg });
     } else {
-      setActionSuccess('Saved locally in browser.');
+      const msg = 'Saved locally in browser.';
+      setActionSuccess(msg);
+      setMusicStatusMessage({ type: 'success', text: msg });
     }
-    setTimeout(() => setActionSuccess(''), 4500);
+    setTimeout(() => {
+      setActionSuccess('');
+      setMusicStatusMessage(null);
+    }, 4500);
   };
 
   const handleResetWeddingDetails = () => {
@@ -527,6 +574,15 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({
   const [newGuestInvitations, setNewGuestInvitations] = useState(2);
   const [actionSuccess, setActionSuccess] = useState('');
   const [actionError, setActionError] = useState('');
+
+  // Audio upload state for phone & desktop
+  const audioFileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploadingAudio, setIsUploadingAudio] = useState(false);
+  const [audioUploadProgress, setAudioUploadProgress] = useState<number | null>(null);
+  const [musicStatusMessage, setMusicStatusMessage] = useState<{
+    type: 'loading' | 'success' | 'error';
+    text: string;
+  } | null>(null);
 
   // Inline edit state
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -1243,7 +1299,7 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({
                             type="text"
                             value={weddingForm.brideName}
                             onChange={(e) => handleUpdateWeddingField('brideName', e.target.value)}
-                            placeholder="e.g. Emma"
+                            placeholder="e.g. Kath"
                             className="w-full bg-[#2a050d] text-white border border-[#5d1726] focus:border-[#caa48a] rounded-lg px-3 py-2 text-xs outline-none"
                           />
                         </div>
@@ -1255,7 +1311,7 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({
                             type="text"
                             value={weddingForm.groomName}
                             onChange={(e) => handleUpdateWeddingField('groomName', e.target.value)}
-                            placeholder="e.g. Andre"
+                            placeholder="e.g. Raynold"
                             className="w-full bg-[#2a050d] text-white border border-[#5d1726] focus:border-[#caa48a] rounded-lg px-3 py-2 text-xs outline-none"
                           />
                         </div>
@@ -1271,7 +1327,7 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({
                             value={weddingForm.coupleInitials}
                             onChange={(e) => handleUpdateWeddingField('coupleInitials', e.target.value.toUpperCase())}
                             maxLength={4}
-                            placeholder="e.g. EA"
+                            placeholder="e.g. KR"
                             className="w-full bg-[#2a050d] text-white border border-[#5d1726] focus:border-[#caa48a] rounded-lg px-3 py-2 text-xs outline-none font-serif tracking-widest text-center"
                           />
                         </div>
@@ -2343,7 +2399,7 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({
 
                   {/* Device File Upload */}
                   <div className="bg-[#1e0308] p-4 rounded-xl border border-[#4d1622] space-y-3 flex flex-col justify-between">
-                    <div className="space-y-2">
+                    <div className="space-y-2.5">
                       <div className="flex items-center gap-2 border-b border-[#3d0b15] pb-2">
                         <Upload className="w-4 h-4 text-[#caa48a]" />
                         <span className="font-cinzel text-xs text-white uppercase font-semibold">
@@ -2351,7 +2407,7 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({
                         </span>
                       </div>
                       <p className="text-[11px] text-[#caa298] leading-relaxed">
-                        Upload your personal couple theme song or recording directly from your device (up to 20MB). Automatically synced to Supabase for all phones &amp; devices.
+                        Upload your personal couple theme song directly from your phone or PC. Automatically synced to Supabase cloud so every guest and device hears it.
                       </p>
 
                       {weddingForm.musicType === 'custom' && (weddingForm.musicUrl?.startsWith('indexeddb://') || weddingForm.musicUrl?.startsWith('supabase://') || weddingForm.musicUrl?.startsWith('blob:')) && (
@@ -2364,21 +2420,69 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({
                         </div>
                       )}
 
+                      {/* Real-time status / progress banner inside Background Music tab */}
+                      {musicStatusMessage && (
+                        <div
+                          className={`p-2.5 rounded-lg text-xs font-sans flex items-center gap-2 animate-in fade-in ${
+                            musicStatusMessage.type === 'loading'
+                              ? 'bg-amber-950/50 border border-amber-800 text-amber-200'
+                              : musicStatusMessage.type === 'success'
+                              ? 'bg-emerald-950/50 border border-emerald-800 text-emerald-200'
+                              : 'bg-rose-950/50 border border-rose-800 text-rose-200'
+                          }`}
+                        >
+                          {musicStatusMessage.type === 'loading' && (
+                            <Loader2 className="w-4 h-4 text-amber-400 animate-spin shrink-0" />
+                          )}
+                          {musicStatusMessage.type === 'success' && (
+                            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                          )}
+                          {musicStatusMessage.type === 'error' && (
+                            <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                          )}
+                          <span className="leading-snug flex-1">{musicStatusMessage.text}</span>
+                        </div>
+                      )}
+
                       <div>
-                        <label className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-[#3a0a14] hover:bg-[#4d111d] text-[#faede5] border border-[#6b1e2e] text-xs font-sans font-medium cursor-pointer transition-colors">
-                          <Upload className="w-4 h-4 text-[#caa48a]" />
-                          <span>Choose Audio File from Device</span>
-                          <input
-                            type="file"
-                            accept="audio/mp3,audio/wav,audio/m4a,audio/aac,audio/ogg"
-                            onChange={handleAudioFileUpload}
-                            className="hidden"
-                          />
-                        </label>
+                        <input
+                          ref={audioFileInputRef}
+                          type="file"
+                          accept="audio/*,.mp3,.wav,.m4a,.aac,.ogg,audio/mpeg,audio/mp4,audio/x-m4a,audio/wav"
+                          onChange={handleAudioFileUpload}
+                          disabled={isUploadingAudio}
+                          className="sr-only"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => audioFileInputRef.current?.click()}
+                          disabled={isUploadingAudio}
+                          className={`w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-xs font-sans font-medium transition-colors cursor-pointer ${
+                            isUploadingAudio
+                              ? 'bg-[#2b0810] text-[#baa09a] border border-[#521723] cursor-not-allowed opacity-80'
+                              : 'bg-[#3a0a14] hover:bg-[#4d111d] text-[#faede5] border border-[#6b1e2e]'
+                          }`}
+                        >
+                          {isUploadingAudio ? (
+                            <>
+                              <Loader2 className="w-4 h-4 text-[#caa48a] animate-spin" />
+                              <span>
+                                {audioUploadProgress !== null
+                                  ? `Syncing Audio (${audioUploadProgress}%)...`
+                                  : 'Uploading Audio File...'}
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <Upload className="w-4 h-4 text-[#caa48a]" />
+                              <span>Choose Audio File from Phone / PC</span>
+                            </>
+                          )}
+                        </button>
                       </div>
                     </div>
-                    <div className="flex items-center justify-between text-[10px] text-[#caa298]">
-                      <span>Formats: MP3, WAV, M4A, OGG</span>
+                    <div className="flex items-center justify-between text-[10px] text-[#caa298] pt-1">
+                      <span>Formats: MP3, M4A, WAV, OGG (up to 25MB)</span>
                       <button
                         type="button"
                         onClick={() => {

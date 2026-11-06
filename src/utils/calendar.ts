@@ -23,11 +23,11 @@ export function downloadIcsFile(wedding: WeddingDetails): void {
   const icsContent = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//Emma and Andre Wedding//Invitation//EN',
+    `PRODID:-//${wedding.brideName || 'Kath'} and ${wedding.groomName || 'Raynold'} Wedding//Invitation//EN`,
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
     'BEGIN:VEVENT',
-    'UID:wedding-emma-andre-2027@invitation',
+    `UID:wedding-${(wedding.brideName || 'kath').toLowerCase()}-${(wedding.groomName || 'raynold').toLowerCase()}-2027@invitation`,
     'DTSTAMP:20261026T000000Z',
     'DTSTART:20270717T200000Z',
     'DTEND:20270718T030000Z',

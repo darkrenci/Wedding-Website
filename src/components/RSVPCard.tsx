@@ -547,7 +547,7 @@ export const RSVPCard: React.FC<RSVPCardProps> = ({
                     <textarea
                       value={wishes}
                       onChange={(e) => setWishes(e.target.value)}
-                      placeholder="Leave a sweet note for Emma & Andre..."
+                      placeholder={`Leave a sweet note for ${(wedding.brideName || 'Kath').trim()} & ${(wedding.groomName || 'Raynold').trim()}...`}
                       rows={2}
                       className="w-full bg-[#360912] border border-[#6b1f2e] rounded px-3 py-1.5 text-xs text-white placeholder-[#874e59] outline-none resize-none"
                     />
