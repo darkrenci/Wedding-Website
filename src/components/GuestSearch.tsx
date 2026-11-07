@@ -24,16 +24,49 @@ export const GuestSearch: React.FC<GuestSearchProps> = ({
   const searchContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    setIsSupabaseConnected(getSupabaseConfig().isConfigured);
-    const unsubscribe = subscribeGuestList((updated) => {
-      setAllGuests(updated);
+    const handleUpdate = (updatedList?: InvitedGuest[]) => {
+      const current = updatedList || getInvitedGuests();
+      setAllGuests(current);
       setIsSupabaseConnected(getSupabaseConfig().isConfigured);
       if (query.trim()) {
         setResults(searchInvitedGuests(query));
       }
+      // If the currently selected guest was deleted in Admin, clear the selection immediately
+      if (
+        selectedGuest &&
+        !current.some(
+          (g) => g.id === selectedGuest.id || g.name.toLowerCase() === selectedGuest.name.toLowerCase()
+        )
+      ) {
+        onSelectGuest(null);
+      }
+    };
+
+    handleUpdate();
+
+    const unsubscribe = subscribeGuestList((updated) => {
+      handleUpdate(updated);
     });
-    return unsubscribe;
-  }, [query]);
+
+    const handleCustomEvent = (e: Event) => {
+      const custom = e as CustomEvent<InvitedGuest[]>;
+      handleUpdate(custom.detail);
+    };
+    window.addEventListener('wedding_guests_changed', handleCustomEvent);
+
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'wedding_master_guest_list') {
+        handleUpdate();
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+
+    return () => {
+      unsubscribe();
+      window.removeEventListener('wedding_guests_changed', handleCustomEvent);
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, [query, selectedGuest, onSelectGuest]);
 
   // Close dropdown on outside click
   useEffect(() => {

@@ -727,7 +727,7 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({
   // 3. DELETE SINGLE GUEST
   const handleRemoveGuest = (guest: InvitedGuest) => {
     if (window.confirm(`Are you sure you want to remove "${guest.name}" from the guest list?`)) {
-      removeInvitedGuest(guest.id);
+      removeInvitedGuest(guest.id, guest.name);
       setGuestList(getInvitedGuests());
       setActionSuccess(`Removed "${guest.name}" from guest list.`);
       setTimeout(() => setActionSuccess(''), 3000);

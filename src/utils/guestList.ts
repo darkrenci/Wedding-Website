@@ -88,16 +88,18 @@ export function getInvitedGuests(): InvitedGuest[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_GUEST_LIST));
-      return INITIAL_GUEST_LIST;
+      const config = getSupabaseConfig();
+      const initial = config.isConfigured ? [] : INITIAL_GUEST_LIST;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
+      return initial;
     }
     const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed) && parsed.length > 0) {
+    if (Array.isArray(parsed)) {
       return parsed;
     }
-    return INITIAL_GUEST_LIST;
+    return [];
   } catch {
-    return INITIAL_GUEST_LIST;
+    return [];
   }
 }
 
@@ -105,6 +107,9 @@ export function saveInvitedGuests(list: InvitedGuest[]): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
     notifyListeners(list);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('wedding_guests_changed', { detail: list }));
+    }
   } catch {
     // ignore
   }
@@ -125,7 +130,7 @@ export async function syncWithSupabase(): Promise<{
   isSyncing = true;
   try {
     const remoteGuests = await fetchGuestsFromSupabase();
-    if (remoteGuests && remoteGuests.length > 0) {
+    if (remoteGuests !== null && Array.isArray(remoteGuests)) {
       saveInvitedGuests(remoteGuests);
       return { synced: true, count: remoteGuests.length, source: 'supabase' };
     }
@@ -149,10 +154,8 @@ export async function forcePullFromSupabase(): Promise<{
 }> {
   try {
     const remote = await fetchGuestsFromSupabase();
-    if (remote && Array.isArray(remote)) {
-      if (remote.length > 0) {
-        saveInvitedGuests(remote);
-      }
+    if (remote !== null && Array.isArray(remote)) {
+      saveInvitedGuests(remote);
       return { success: true, count: remote.length };
     }
     return { success: false, count: 0, error: 'No data returned from Supabase table "guests".' };
@@ -311,15 +314,31 @@ export async function bulkAddInvitedGuests(
   }
 }
 
-export function removeInvitedGuest(id: string): void {
+export function removeInvitedGuest(idOrGuest: string | InvitedGuest, guestName?: string): void {
+  const targetId = typeof idOrGuest === 'string' ? idOrGuest : idOrGuest?.id;
+  const targetName = (typeof idOrGuest === 'object' ? idOrGuest.name : guestName) || '';
+
   const list = getInvitedGuests();
-  const target = list.find((g) => g.id === id);
-  const updated = list.filter((g) => g.id !== id);
+  const matched = list.find(
+    (g) => (targetId && g.id === targetId) || (targetName && g.name.toLowerCase() === targetName.toLowerCase())
+  );
+
+  const finalName = targetName || matched?.name || '';
+  const finalId = targetId || matched?.id || '';
+
+  // Filter out by BOTH id AND name so deleted guest never lingers
+  const updated = list.filter((g) => {
+    if (finalId && g.id === finalId) return false;
+    if (finalName && g.name.trim().toLowerCase() === finalName.trim().toLowerCase()) return false;
+    return true;
+  });
+
   saveInvitedGuests(updated);
 
-  if (target) {
-    deleteGuestFromSupabase(target.id || target.name).catch(() => {});
-  }
+  // Sync deletion directly with Supabase using BOTH id AND name
+  deleteGuestFromSupabase(finalId, finalName).catch((err) => {
+    console.warn('Could not delete guest from Supabase:', err);
+  });
 }
 
 export function updateGuestRSVP(guestName: string, rsvp: RSVPResponse): void {

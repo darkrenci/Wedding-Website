@@ -249,17 +249,31 @@ export async function deleteAllGuestsFromSupabase(): Promise<boolean> {
   }
 }
 
-export async function deleteGuestFromSupabase(idOrName: string): Promise<boolean> {
+export async function deleteGuestFromSupabase(idOrName?: string, name?: string): Promise<boolean> {
   const client = getSupabaseClient();
   if (!client) return false;
 
   try {
-    const { error: err1 } = await client.from('guests').delete().eq('id', idOrName);
-    if (!err1) return true;
+    const targetName = name || (idOrName && !idOrName.startsWith('guest-') && idOrName.includes(' ') ? idOrName : '');
+    if (targetName && targetName.trim()) {
+      const clean = targetName.trim();
+      await client.from('guests').delete().eq('name', clean);
+      await client.from('guests').delete().ilike('name', clean);
+    }
 
-    const { error: err2 } = await client.from('guests').delete().eq('name', idOrName);
-    return !err2;
-  } catch {
+    if (idOrName && idOrName.trim()) {
+      await client.from('guests').delete().eq('id', idOrName.trim());
+    }
+
+    // Also fallback attempt with idOrName directly against name
+    if (idOrName && idOrName.trim() && idOrName !== targetName) {
+      await client.from('guests').delete().eq('name', idOrName.trim());
+      await client.from('guests').delete().ilike('name', idOrName.trim());
+    }
+
+    return true;
+  } catch (err) {
+    console.warn('Failed to delete guest from Supabase:', err);
     return false;
   }
 }
