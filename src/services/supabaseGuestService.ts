@@ -237,14 +237,45 @@ export async function deleteAllGuestsFromSupabase(): Promise<boolean> {
   if (!client) return false;
 
   try {
-    // Delete only human guests, preserving any system configs
-    const { error } = await client
+    // 1. Fetch all rows in guests table to identify human guests
+    const { data: rows, error: fetchErr } = await client
       .from('guests')
-      .delete()
-      .not('name', 'like', '__%')
-      .neq('rsvp_status', 'system');
-    return !error;
-  } catch {
+      .select('id, name, rsvp_status');
+
+    if (fetchErr || !Array.isArray(rows)) {
+      console.warn('Could not fetch guests for deletion:', fetchErr);
+      return false;
+    }
+
+    // Filter to strictly human guests (preserve system settings/audio/love notes)
+    const humanGuests = rows.filter(
+      (r: any) => !String(r.name || '').startsWith('__') && r.rsvp_status !== 'system'
+    );
+
+    if (humanGuests.length === 0) {
+      return true;
+    }
+
+    const humanIds = humanGuests.map((r: any) => r.id);
+
+    // Delete in chunks of 50
+    for (let i = 0; i < humanIds.length; i += 50) {
+      const chunk = humanIds.slice(i, i + 50);
+      const { error: delErr } = await client
+        .from('guests')
+        .delete()
+        .in('id', chunk);
+
+      if (delErr) {
+        console.error('Error deleting human guest batch from Supabase:', delErr);
+        const namesChunk = humanGuests.slice(i, i + 50).map((r: any) => r.name);
+        await client.from('guests').delete().in('name', namesChunk);
+      }
+    }
+
+    return true;
+  } catch (err) {
+    console.error('Failed to delete all guests from Supabase:', err);
     return false;
   }
 }
@@ -254,21 +285,15 @@ export async function deleteGuestFromSupabase(idOrName?: string, name?: string):
   if (!client) return false;
 
   try {
-    const targetName = name || (idOrName && !idOrName.startsWith('guest-') && idOrName.includes(' ') ? idOrName : '');
-    if (targetName && targetName.trim()) {
-      const clean = targetName.trim();
-      await client.from('guests').delete().eq('name', clean);
-      await client.from('guests').delete().ilike('name', clean);
+    const resolvedName = (name || (idOrName && !idOrName.startsWith('guest-') ? idOrName : '')).trim();
+
+    if (resolvedName) {
+      await client.from('guests').delete().eq('name', resolvedName);
+      await client.from('guests').delete().ilike('name', resolvedName);
     }
 
-    if (idOrName && idOrName.trim()) {
+    if (idOrName && idOrName.trim() && !idOrName.startsWith('guest-')) {
       await client.from('guests').delete().eq('id', idOrName.trim());
-    }
-
-    // Also fallback attempt with idOrName directly against name
-    if (idOrName && idOrName.trim() && idOrName !== targetName) {
-      await client.from('guests').delete().eq('name', idOrName.trim());
-      await client.from('guests').delete().ilike('name', idOrName.trim());
     }
 
     return true;

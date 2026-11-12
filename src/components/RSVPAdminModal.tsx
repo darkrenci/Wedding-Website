@@ -801,16 +801,23 @@ export const RSVPAdminModal: React.FC<RSVPAdminModalProps> = ({
   };
 
   // 6. CLEAR ALL GUESTS (START FRESH)
-  const handleClearAllGuests = () => {
+  const handleClearAllGuests = async () => {
     if (
       window.confirm(
-        'Clear all guests? This will remove sample names and let you start with a completely fresh guest list.'
+        'Clear all guests? This will remove all guests from both this device and Supabase cloud so you can start with a completely fresh guest list.'
       )
     ) {
-      clearAllGuests();
-      setGuestList([]);
-      setActionSuccess('Cleared all guests. You can now add your real wedding guests.');
-      setTimeout(() => setActionSuccess(''), 3500);
+      setIsSyncing(true);
+      try {
+        await clearAllGuests();
+        setGuestList([]);
+        setActionSuccess('Cleared all guests. You can now add your real wedding guests.');
+        setTimeout(() => setActionSuccess(''), 3500);
+      } catch (err: any) {
+        setActionError(`Error clearing guests: ${err?.message || 'Check database connection'}`);
+      } finally {
+        setIsSyncing(false);
+      }
     }
   };
 

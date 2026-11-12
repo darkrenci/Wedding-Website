@@ -365,22 +365,29 @@ export function updateGuestRSVP(guestName: string, rsvp: RSVPResponse): void {
   });
 }
 
-export function clearAllGuests(): void {
+export async function clearAllGuests(): Promise<boolean> {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify([]));
     notifyListeners([]);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('wedding_guests_changed', { detail: [] }));
+    }
   } catch {
     // ignore
   }
-  deleteAllGuestsFromSupabase().catch(() => {});
+  return await deleteAllGuestsFromSupabase();
 }
 
 export function resetGuestList(): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(INITIAL_GUEST_LIST));
     notifyListeners(INITIAL_GUEST_LIST);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('wedding_guests_changed', { detail: INITIAL_GUEST_LIST }));
+    }
   } catch {
     // ignore
   }
+  bulkUpsertGuestsToSupabase(INITIAL_GUEST_LIST).catch(() => {});
 }
 
